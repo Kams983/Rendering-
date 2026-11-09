@@ -1,0 +1,44 @@
+name: Render Remotion Video
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install numpy scipy
+
+      - name: Generate SFX
+        run: python scripts/make_sfx.py
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Render video
+        run: npx remotion render EarthStop out/earth-stop.mp4
+
+<<<<<<< HEAD
+      - name: Upload rendered MP4
+=======
+      - name: Upload rendered video
+>>>>>>> 1fb4d2a742c9659d49fed904ab894484f2d46b38
+        uses: actions/upload-artifact@v4
+        with:
+          name: earth-stop-video
+          path: out/earth-stop.mp4
