@@ -35,7 +35,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Render video
+        env:
+          REMOTION_CHROME_DISABLE_SANDBOX: "true"
         run: npx remotion render EarthStop out/earth-stop.mp4 --chromium-flags="--no-sandbox --disable-setuid-sandbox --use-gl=swiftshader"
+
 
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
