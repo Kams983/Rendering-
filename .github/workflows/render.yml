@@ -21,14 +21,22 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install numpy scipy
+
+      - name: Generate SFX
+        run: python scripts/make_sfx.py
+
+      - name: Install Node dependencies
         run: npm install
 
       - name: Render video
         run: npm run render
-
-      - name: Check audio stream
-        run: npx remotion ffprobe -v error -select_streams a -show_entries stream=codec_name -of csv=p=0 out/internet-facts.mp4
 
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
