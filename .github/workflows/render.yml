@@ -30,6 +30,10 @@ jobs:
       - name: Install Node dependencies
         run: npm install
 
+
+      - name: Install System Browser Dependencies
+        run: npx playwright install-deps chromium
+
       - name: Render video
         run: npx remotion render EarthStop out/earth-stop.mp4 --chromium-flags="--no-sandbox --disable-setuid-sandbox --use-gl=swiftshader"
 
