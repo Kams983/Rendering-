@@ -1,13 +1,13 @@
 import React from 'react';
 import {Composition} from 'remotion';
-import {InternetFacts, TOTAL_FRAMES} from './Video';
+import {Main, TOTAL} from './src/Main';
 
 export const Root: React.FC = () => {
   return (
     <Composition
       id="InternetFacts"
-      component={InternetFacts}
-      durationInFrames={TOTAL_FRAMES}
+      component={Main}
+      durationInFrames={TOTAL}
       fps={30}
       width={1080}
       height={1920}
