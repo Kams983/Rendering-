@@ -84,8 +84,18 @@ def bed(d=33.0):
     y += 0.12 * lp(rng.standard_normal(len(x)), 600)
     return lp(y, 1400)
 
+def alarm(d=1.2, f1=880, f2=660, seg=0.15):
+    """Two alternating tones, about 1.2 seconds."""
+    x = t(d)
+    f = np.where((x // seg).astype(int) % 2 == 0, f1, f2)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    y = 0.5 * np.sign(np.sin(ph)) + 0.5 * np.sin(ph)
+    local = (x % seg) / seg
+    env = np.minimum(1, local * 25) * np.minimum(1, (1 - local) * 12)
+    return fade(lp(y * env, 5000))
+
 for name, fn in {
     "whoosh": whoosh, "hit": hit, "tick": tick, "pop": pop, "ding": ding, "key": key,
-    "shutter": shutter, "blip": blip, "riser": riser, "glitch": glitch, "bed": bed,
+    "shutter": shutter, "blip": blip, "riser": riser, "glitch": glitch, "bed": bed, "alarm": alarm,
 }.items():
     save(name, fn()); print("made", name)

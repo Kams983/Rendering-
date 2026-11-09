@@ -27,6 +27,9 @@ jobs:
       - name: Render video
         run: npm run render
 
+      - name: Check audio stream
+        run: npx remotion ffprobe -v error -select_streams a -show_entries stream=codec_name -of csv=p=0 out/internet-facts.mp4
+
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:

@@ -1,12 +1,12 @@
 import React from 'react';
 import {AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig} from 'remotion';
 import {C} from './common';
-import {S1, S2, S3, S4, S5, S6} from './scenes';
+import {S1, S2, S3, S4, S5, S6, S7} from './scenes';
 import {Sfx} from './audio';
 
 const SCENES = [
-  {C: S1, d: 90}, {C: S2, d: 180}, {C: S3, d: 210},
-  {C: S4, d: 210}, {C: S5, d: 150}, {C: S6, d: 120},
+  {C: S1, d: 90}, {C: S2, d: 120}, {C: S3, d: 150},
+  {C: S4, d: 120}, {C: S5, d: 150}, {C: S6, d: 150}, {C: S7, d: 120},
 ];
 export const TOTAL = SCENES.reduce((s, x) => s + x.d, 0);
 

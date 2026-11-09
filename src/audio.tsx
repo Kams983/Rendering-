@@ -1,48 +1,51 @@
 import React from 'react';
 import {Audio, Sequence, interpolate, staticFile} from 'remotion';
+import {T} from './common';
 
 // Set to true after you drop your ElevenLabs export at public/voiceover.mp3
 export const VOICEOVER = false;
 
 type Cue = {f: number; file: string; v: number};
-// Scene starts (frames @30fps): 0, 90, 270, 480, 690, 840
-const starts = [0, 90, 270, 480, 690, 840];
+// Scene starts (frames @30fps): 0, 90, 210, 360, 480, 630, 780
+const starts = [0, 90, 210, 360, 480, 630, 780];
+const s = (n: number) => starts[n - 1];
 const cues: Cue[] = [];
 const add = (f: number, file: string, v: number) => cues.push({f, file, v});
 
 // Scene cuts: whoosh just before each cut, label pop just after
-starts.forEach((s, i) => {
-  add(Math.max(0, s - 4), 'whoosh', 0.5);
-  if (i < 5) add(s + 2, 'pop', 0.4);
+starts.forEach((st) => {
+  add(Math.max(0, st - 4), 'whoosh', 0.5);
+  add(st + 2, 'pop', 0.4);
 });
 
-// Scene 1: FAKE? stamp, then REAL. stamp
-add(26, 'hit', 0.8);
-add(56, 'glitch', 0.5);
-add(58, 'hit', 1);
-add(60, 'ding', 0.35);
+// Scene 1: freezer flips to red
+add(s(1) + T.s1.flip, 'glitch', 0.6);
 
-// Scene 2: page lines draw in, URL types out
-for (let i = 0; i < 6; i++) add(110 + i * 10, 'blip', 0.3);
-for (let k = 0; k < 17; k++) add(124 + k * 2, 'key', k % 3 === 0 ? 0.4 : 0.3);
+// Scene 2: tick on each map flash
+for (let i = 0; i < 6; i++) add(s(2) + T.s2.flashStart + i * T.s2.flashStep, 'tick', 0.4);
 
-// Scene 3: tag drops and bounces, year ticks up, locks
-add(282, 'hit', 0.9);
-add(296, 'hit', 0.35);
-for (let k = 0; k < 24; k++) add(294 + k * 2, 'tick', 0.22);
-add(341, 'ding', 0.6);
-add(365, 'ding', 0.5);
+// Scene 3: alarm when the number passes 0, hit when it locks at 50
+add(s(3) + T.s3.pass0, 'alarm', 0.45);
+add(s(3) + T.s3.lock, 'hit', 1);
 
-// Scene 4: camera shutter on the coffee pot
-[492, 552, 612, 672].forEach((f) => add(f, 'shutter', 0.35));
+// Scene 4: ESTONIA tag lands
+add(s(4) + T.s4.land, 'hit', 0.9);
 
-// Scene 5: letters flip Google to BackRub
-add(752, 'glitch', 0.6);
+// Scene 5: tick per country, ding on the final count, blip for the tag
+for (let i = 0; i < 5; i++) add(s(5) + T.s5.litStart + i * T.s5.litStep, 'tick', 0.4);
+add(s(5) + T.s5.plusAt, 'ding', 0.6);
+add(s(5) + T.s5.tagAt, 'blip', 0.35);
 
-// Scene 6: spheres converge, impact, "Part 2 tomorrow"
-add(840, 'riser', 0.7);
-add(910, 'hit', 1);
-add(928, 'ding', 0.6);
+// Scene 6: tick per store icon, glitch at the end
+for (let i = 0; i < 15; i++) add(s(6) + T.s6.iconStart + i * T.s6.iconStep, 'tick', 0.3);
+add(s(6) + T.s6.glitchAt, 'glitch', 0.6);
+
+// Scene 7: riser into f780, hit at f840, ding at f870
+add(s(7) - 30, 'riser', 0.7);
+add(s(7) + T.s7.dot1, 'blip', 0.3);
+add(s(7) + T.s7.dot2, 'blip', 0.3);
+add(s(7) + T.s7.hit, 'hit', 1);
+add(s(7) + T.s7.ding, 'ding', 0.6);
 
 export const Sfx: React.FC<{total: number}> = ({total}) => (
   <>
