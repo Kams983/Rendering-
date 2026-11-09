@@ -14,7 +14,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,15 +29,18 @@ jobs:
       - name: Install Node dependencies
         run: npm install
 
-
-      - name: Install System Browser Dependencies
-        run: npx playwright install-deps chromium
+      - name: Install Chromium for Remotion
+        run: |
+          npx remotion browser ensure
+          npx playwright install --with-deps chromium
 
       - name: Render video
         env:
           REMOTION_CHROME_DISABLE_SANDBOX: "true"
-        run: npx remotion render EarthStop out/earth-stop.mp4 --chromium-flags="--no-sandbox --disable-setuid-sandbox --use-gl=swiftshader"
-
+          CI: "true"
+        run: |
+          npx remotion render EarthStop out/earth-stop.mp4 \
+            --chromium-flags="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --use-gl=swiftshader"
 
       - name: Upload rendered video
         uses: actions/upload-artifact@v4
