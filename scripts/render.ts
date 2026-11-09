@@ -5,12 +5,12 @@ import path from 'path';
 async function main() {
   const entry = path.resolve('src/index.ts');
   const bundleLocation = await bundle({entryPoint: entry, webpackOverride: (config) => config});
-  const composition = await selectComposition({serveUrl: bundleLocation, id: 'EarthStop'});
+  const composition = await selectComposition({serveUrl: bundleLocation, id: process.argv[2] ?? 'InternetFacts'});
   await renderMedia({
     composition,
     serveUrl: bundleLocation,
     codec: 'h264',
-    outputLocation: 'out/earth-stop.mp4',
+    outputLocation: 'out/video.mp4',
     inputProps: {},
   });
 }
