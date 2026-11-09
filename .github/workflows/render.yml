@@ -33,11 +33,7 @@ jobs:
       - name: Render video
         run: npx remotion render EarthStop out/earth-stop.mp4
 
-<<<<<<< HEAD
-      - name: Upload rendered MP4
-=======
       - name: Upload rendered video
->>>>>>> 1fb4d2a742c9659d49fed904ab894484f2d46b38
         uses: actions/upload-artifact@v4
         with:
           name: earth-stop-video
