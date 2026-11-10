@@ -1,70 +1,44 @@
-# You Are Not Behind
+# New York Wasn't Always New York
 
-30 second vertical (1080x1920, 30fps) growth mindset short.
-3D scene built with three.js, rendered with Remotion. Sound effects included.
+A 60-second, vertical 3D Remotion short about Manhattan's transformation. The
+composition is 1080x1920 at 30 fps (1800 frames), built with React, TypeScript,
+Three.js, and React Three Fiber. The visuals use low-poly geometry only.
 
-## Quick start
-
-```bash
-npm install
-npm run dev        # opens Remotion Studio to preview
-```
-
-## Voiceover (ElevenLabs)
-
-1. Paste the text from `VOICEOVER.txt` into ElevenLabs and generate it.
-2. Save the file as `public/audio/voiceover.mp3`.
-3. In `src/config.ts` set `USE_VOICEOVER = true`.
-
-Aim for about 30 seconds total. If your voiceover runs longer or shorter, retime the
-cues in `src/Sfx.tsx` and the caption times in `src/Overlays.tsx` (all times are in seconds).
-
-## Render
-
-Local:
+## Preview and render
 
 ```bash
-npm run render     # out/you-are-not-behind.mp4
+npm ci
+npm run dev
+npm run render
 ```
 
-GitHub Actions:
+The local render writes `out/new-york.mp4`. The GitHub Actions workflow runs on
+pushes to `main` and manually from the Actions tab; its video is uploaded as the
+`new-york-history` artifact.
 
-1. Push this repo to GitHub (branch `main`).
-2. Go to Actions, pick "Render video", click "Run workflow".
-3. When it finishes, download the `you-are-not-behind` artifact. Unzip it for the mp4.
+## Audio
 
-Pushes to `main` that touch `src/`, `public/` or `package.json` also trigger a render.
-The CI script uses `--gl=swangle` (software rendering) because GitHub runners have no GPU.
+The composition uses the available WAV effects in `public/sfx/`. Adjust
+`SFX_VOLUME` in `src/constants.ts` to tune their overall level. Add the final
+ElevenLabs recording as `public/voiceover.mp3`, then set `USE_VOICEOVER` to
+`true` in the same constants file. `VOICEOVER.txt` contains a suggested script;
+time the delivered recording to approximately 60 seconds.
 
-## Sound effects
+The current sound effects are the WAV files already in this repository, mapped
+to the scene cues in `src/NewYorkHistory.tsx`. Swap in scene-specific recordings
+there if desired.
 
-All SFX are generated in code, so they are royalty free. Regenerate them with:
+## GitHub Actions and FFmpeg
 
-```bash
-pip install numpy scipy
-python scripts/generate_sfx.py
-```
+The workflow runs `npm ci`, ensures Remotion's browser, renders with
+`--gl=swangle` for software WebGL, and uploads the MP4. No system `ffmpeg`
+package needs to be installed; Remotion's renderer manages the FFmpeg binary
+through its npm dependencies.
 
-To use better sounds, drop your own files into `public/audio` with the same file names.
+## Assumptions to confirm
 
-## Timeline
-
-| Time | Scene |
-|---|---|
-| 0-3s | Small glowing figure far behind taller figures |
-| 3-7s | Camera pushes in, thought bubble |
-| 7-10s | "yet" lands, figure turns gold |
-| 10-14s | Polished gold cards, camera swings behind to the crumpled drafts |
-| 14-18s | Figure stumbles, staircase grows |
-| 18-23s | Effort, Feedback, Repeat orbit the figure |
-| 23-27s | Camera pulls back, figure stands taller on the staircase |
-| 27-30s | Black screen, "Not good at this. Yet." |
-
-## Structure
-
-```
-src/Scene3D.tsx    3D scene and camera path
-src/Overlays.tsx   text captions
-src/Sfx.tsx        sound effect timing and voiceover hook
-src/config.ts      size, fps, voiceover switch, colors
-```
+- The voiceover is not included yet; provide `public/voiceover.mp3` and confirm
+  the narration should fit the full 60-second cut.
+- The requested output aspect ratio is portrait 9:16 (1080x1920).
+- Existing WAV effects are used as temporary scene cues; provide custom
+  scene-named effects if specific recordings are required.

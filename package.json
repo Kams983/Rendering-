@@ -2,12 +2,12 @@
   "name": "you-are-not-behind",
   "version": "1.0.0",
   "private": true,
-  "description": "You Are Not Behind: 3D growth mindset short built with Remotion and three.js",
+  "description": "New York Wasn't Always New York: a 3D animated history of Manhattan",
   "scripts": {
     "dev": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts YouAreNotBehind out/you-are-not-behind.mp4 --gl=angle",
-    "render:ci": "remotion render src/index.ts YouAreNotBehind out/you-are-not-behind.mp4 --gl=swangle",
-    "still": "remotion still src/index.ts YouAreNotBehind out/frame.png --frame=450 --gl=angle",
+    "render": "remotion render src/index.ts NewYorkHistory out/new-york.mp4 --gl=angle",
+    "render:ci": "remotion render src/index.ts NewYorkHistory out/new-york.mp4 --gl=swangle",
+    "still": "remotion still src/index.ts NewYorkHistory out/frame.png --frame=900 --gl=angle",
     "sfx": "python scripts/generate_sfx.py",
     "typecheck": "tsc --noEmit"
   },

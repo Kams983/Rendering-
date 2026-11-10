@@ -1,39 +1,25 @@
-name: Render video
+name: Render New York history video
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "public/**"
-      - "package.json"
-      - ".github/workflows/render.yml"
 
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Render
-        run: npm run render:ci
-
-      - name: Upload video
+      - run: npm ci
+      - run: npx remotion browser ensure
+      - run: npx remotion render src/index.ts NewYorkHistory out/new-york.mp4 --gl=swangle
+      - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
-          name: you-are-not-behind
-          path: out/you-are-not-behind.mp4
+          name: new-york-history
+          path: out/new-york.mp4
           if-no-files-found: error
