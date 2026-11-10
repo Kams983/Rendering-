@@ -1,28 +1,29 @@
 {
-  "name": "earth-remotion",
+  "name": "you-are-not-behind",
+  "version": "1.0.0",
   "private": true,
+  "description": "You Are Not Behind: 3D growth mindset short built with Remotion and three.js",
   "scripts": {
-    "start": "remotion studio",
-    "render": "remotion render InternetFacts out/internet-facts.mp4",
-    "render:earth": "remotion render EarthStop out/earth-stop.mp4",
-    "render:script": "tsx scripts/render.ts"
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts YouAreNotBehind out/you-are-not-behind.mp4 --gl=angle",
+    "render:ci": "remotion render src/index.ts YouAreNotBehind out/you-are-not-behind.mp4 --gl=swangle",
+    "still": "remotion still src/index.ts YouAreNotBehind out/frame.png --frame=450 --gl=angle",
+    "sfx": "python scripts/generate_sfx.py",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-three/fiber": "8.18.0",
-    "@remotion/bundler": "4.0.539",
-    "@remotion/cli": "4.0.539",
-    "@remotion/renderer": "4.0.539",
-    "@remotion/three": "4.0.539",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "remotion": "4.0.539",
-    "three": "0.170.0"
+    "@react-three/fiber": "^9.8.2",
+    "@remotion/cli": "4.0.542",
+    "@remotion/three": "4.0.542",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "4.0.542",
+    "three": "^0.187.0"
   },
   "devDependencies": {
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
-    "@types/three": "0.170.0",
-    "tsx": "4.19.2",
-    "typescript": "5.5.4"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2"
   }
 }

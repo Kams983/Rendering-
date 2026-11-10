@@ -1,25 +1,17 @@
-import React from 'react';
-import {Composition} from 'remotion';
-import {Main, TOTAL} from './Main';
-import {Video} from './Video';
+import React from "react";
+import { Composition } from "remotion";
+import { YouAreNotBehind } from "./Video";
+import { DURATION_FRAMES, FPS, HEIGHT, WIDTH } from "./config";
 
-export const Root: React.FC = () => (
-  <>
+export const RemotionRoot: React.FC = () => {
+  return (
     <Composition
-      id="InternetFacts"
-      component={Main}
-      durationInFrames={TOTAL}
-      fps={30}
-      width={1080}
-      height={1920}
+      id="YouAreNotBehind"
+      component={YouAreNotBehind}
+      durationInFrames={DURATION_FRAMES}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
     />
-    <Composition
-      id="EarthStop"
-      component={Video}
-      durationInFrames={900}
-      fps={30}
-      width={1080}
-      height={1920}
-    />
-  </>
-);
+  );
+};
