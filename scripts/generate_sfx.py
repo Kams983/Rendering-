@@ -1,10 +1,10 @@
 """
-Generates every sound effect used in the video as a WAV file in public/audio.
-Run:  python scripts/generate_sfx.py
-Needs: numpy, scipy
+Generates every sound effect used in the video.
+Run with: npm run sfx
+Requires numpy and scipy only. No network access and no downloaded samples.
 
-Want better sounds? Drop your own files into public/audio with the SAME names
-and they will be used instead. Nothing else needs to change.
+The WAV files in public/audio are committed, so CI and editors do not need
+Python. Re-run this script only when you want to change the sound design.
 """
 import os
 import wave
@@ -13,201 +13,381 @@ import numpy as np
 from scipy import signal
 
 SR = 44100
-OUT = os.path.join(os.path.dirname(__file__), "..", "public", "audio")
+OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "public", "audio"))
 os.makedirs(OUT, exist_ok=True)
-rng = np.random.default_rng(7)
+rng = np.random.default_rng(20261115)
 
 
-def t_axis(d):
-    return np.linspace(0, d, int(SR * d), endpoint=False)
+def t_axis(duration):
+    return np.arange(int(SR * duration), dtype=np.float64) / SR
 
 
-def sine(f, d, phase=0.0):
-    t = t_axis(d)
-    if np.isscalar(f):
-        return np.sin(2 * np.pi * f * t + phase)
-    return np.sin(2 * np.pi * np.cumsum(f) / SR + phase)
+def noise(duration):
+    return rng.standard_normal(int(SR * duration))
 
 
-def noise(d):
-    return rng.standard_normal(int(SR * d))
-
-
-def adsr(n, a, r, curve=2.0):
-    """Simple attack/release envelope over n samples (a, r in seconds)."""
-    e = np.ones(n)
-    na = max(1, int(a * SR))
-    nr = max(1, int(r * SR))
-    e[:na] = np.linspace(0, 1, na) ** curve
-    e[-nr:] = np.minimum(e[-nr:], np.linspace(1, 0, nr) ** curve)
-    return e
+def sine(freq, t, phase=0.0):
+    if np.isscalar(freq):
+        f = np.full(t.shape, float(freq))
+    else:
+        f = np.asarray(freq, dtype=np.float64)
+    return np.sin(2.0 * np.pi * np.cumsum(f) / SR + phase)
 
 
 def decay(n, tau):
-    t = np.arange(n) / SR
-    return np.exp(-t / tau)
+    return np.exp(-np.arange(n) / (SR * max(tau, 1e-4)))
+
+
+def env_ad(n, attack, release, curve=1.6):
+    env = np.ones(n)
+    na = min(n, max(1, int(attack * SR)))
+    nr = min(n, max(1, int(release * SR)))
+    env[:na] = np.linspace(0.0, 1.0, na) ** curve
+    env[n - nr :] *= np.linspace(1.0, 0.0, nr) ** curve
+    return env
 
 
 def lowpass(x, fc, order=4):
+    fc = float(np.clip(fc, 30.0, SR * 0.45))
     sos = signal.butter(order, fc, btype="low", fs=SR, output="sos")
     return signal.sosfilt(sos, x)
 
 
 def highpass(x, fc, order=4):
+    fc = float(np.clip(fc, 20.0, SR * 0.45))
     sos = signal.butter(order, fc, btype="high", fs=SR, output="sos")
     return signal.sosfilt(sos, x)
 
 
-def bandpass_sweep(x, f0, f1, q=2.0, blocks=48):
-    """Noise through a band-pass whose centre frequency sweeps f0 -> f1."""
+def bandpass(x, lo, hi, order=3):
+    lo = float(np.clip(lo, 20.0, SR * 0.44))
+    hi = float(np.clip(hi, lo + 20.0, SR * 0.46))
+    sos = signal.butter(order, [lo, hi], btype="band", fs=SR, output="sos")
+    return signal.sosfilt(sos, x)
+
+
+def band_sweep(x, f0, f1, q=1.3, blocks=56):
+    """Sweeps a band pass filter across noise from f0 to f1."""
     n = len(x)
     out = np.zeros(n)
-    edges = np.linspace(0, n, blocks + 1, dtype=int)
-    fs = np.geomspace(f0, f1, blocks)
+    edges = np.linspace(0, n, blocks + 1).astype(int)
+    freqs = np.geomspace(f0, f1, blocks)
     zi = None
     for i in range(blocks):
-        fc = fs[i]
-        lo, hi = fc / (1 + 1 / q), min(fc * (1 + 1 / q), SR / 2 - 100)
+        fc = float(freqs[i])
+        lo = max(25.0, fc / (1.0 + 1.0 / q))
+        hi = min(SR * 0.46, fc * (1.0 + 1.0 / q))
+        if hi <= lo + 10.0:
+            hi = lo + 40.0
         sos = signal.butter(2, [lo, hi], btype="band", fs=SR, output="sos")
-        seg = x[edges[i]:edges[i + 1]]
         if zi is None:
-            zi = signal.sosfilt_zi(sos) * 0
-        seg_out, zi = signal.sosfilt(sos, seg, zi=zi)
-        out[edges[i]:edges[i + 1]] = seg_out
+            zi = np.zeros((sos.shape[0], 2))
+        segment = x[edges[i] : edges[i + 1]]
+        y, zi = signal.sosfilt(sos, segment, zi=zi)
+        out[edges[i] : edges[i + 1]] = y
     return out
 
 
-def norm(x, peak=0.9):
-    m = np.max(np.abs(x)) or 1.0
-    return x / m * peak
+def add_at(buffer, sound, start_seconds):
+    start = max(0, int(start_seconds * SR))
+    end = min(len(buffer), start + len(sound))
+    if end > start:
+        buffer[start:end] += sound[: end - start]
 
 
-def fade_edges(x, ms=8):
-    n = int(SR * ms / 1000)
-    x = x.copy()
-    x[:n] *= np.linspace(0, 1, n)
-    x[-n:] *= np.linspace(1, 0, n)
-    return x
-
-
-def save(name, x):
-    x = fade_edges(np.clip(x, -1, 1))
-    data = (x * 32767).astype("<i2")
+def save(name, data, peak=0.85):
+    x = np.asarray(data, dtype=np.float64)
+    x = np.nan_to_num(x)
+    x = np.tanh(x * 1.1) / np.tanh(1.1)
+    top = float(np.max(np.abs(x))) if x.size else 0.0
+    if top > 1e-9:
+        x = x / top * peak
+    fade = max(1, int(0.005 * SR))
+    fade = min(fade, len(x) // 2)
+    if fade > 0:
+        x[:fade] *= np.linspace(0.0, 1.0, fade)
+        x[-fade:] *= np.linspace(1.0, 0.0, fade)
+    x = np.clip(x, -1.0, 1.0)
     path = os.path.join(OUT, name)
-    with wave.open(path, "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes(data.tobytes())
-    print("wrote", name, f"{len(x) / SR:.2f}s")
+    with wave.open(path, "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(SR)
+        handle.writeframes((x * 32767.0).astype("<i2").tobytes())
+    print(f"wrote {name}  {len(x) / SR:.2f}s")
 
 
-# 1. Rising whoosh (opening)
-d = 2.0
-x = bandpass_sweep(noise(d), 200, 3500, q=1.2)
-x *= adsr(len(x), 1.4, 0.5, curve=1.5)
-save("whoosh_rise.wav", norm(x, 0.8))
+def bass_hit():
+    duration = 1.8
+    t = t_axis(duration)
+    n = len(t)
+    freq = 34.0 + 104.0 * np.exp(-t * 4.2)
+    body = sine(freq, t) * decay(n, 0.52)
+    click = highpass(noise(0.05), 1400.0, 2) * decay(len(t_axis(0.05)), 0.006)
+    x = body.copy()
+    add_at(x, 0.32 * click, 0.0)
+    x = lowpass(x, 5200.0)
+    save("bass_hit.wav", x, 0.88)
 
-# 2. Soft bass hit
-d = 1.4
-f = 90 * np.exp(-t_axis(d) * 3.0) + 38
-x = sine(f, d) * decay(int(SR * d), 0.35)
-x += 0.25 * lowpass(noise(d), 300) * decay(int(SR * d), 0.08)
-save("bass_hit.wav", norm(x, 0.95))
 
-# 3. Soft pop
-d = 0.25
-f = 700 * np.exp(-t_axis(d) * 18) + 220
-x = sine(f, d) * decay(int(SR * d), 0.04)
-save("pop.wav", norm(x, 0.7))
+def key_click():
+    duration = 0.16
+    x = np.zeros(int(SR * duration))
+    n1 = int(SR * 0.013)
+    burst = highpass(noise(0.013), 2200.0, 2)[:n1] * decay(n1, 0.0022)
+    x[:n1] += 0.8 * burst
+    x[:n1] += 0.5 * (sine(2100.0, t_axis(0.013))[:n1] * decay(n1, 0.003))
+    n2 = int(SR * 0.04)
+    x[:n2] += 0.45 * (sine(155.0, t_axis(0.04))[:n2] * decay(n2, 0.012))
+    x = lowpass(x, 9000.0)
+    save("key_click.wav", x, 0.7)
 
-# 4. Low ambient hum (4s)
-d = 4.0
-x = sine(55, d) + 0.5 * sine(110.4, d) + 0.25 * sine(165.2, d)
-x += 0.15 * lowpass(noise(d), 400)
-x *= adsr(len(x), 1.0, 1.2, curve=1.0)
-save("hum.wav", norm(x, 0.5))
 
-# 5. Riser
-d = 1.1
-f = np.geomspace(300, 2400, int(SR * d))
-x = sine(f, d) * 0.5 + bandpass_sweep(noise(d), 500, 6000, q=1.5) * 0.6
-x *= adsr(len(x), 1.0, 0.08, curve=2.0)
-save("riser.wav", norm(x, 0.7))
+def pop():
+    duration = 0.26
+    t = t_axis(duration)
+    n = len(t)
+    freq = 180.0 + 850.0 * np.exp(-t * 26.0)
+    x = sine(freq, t) * decay(n, 0.05)
+    click = highpass(noise(0.006), 2500.0, 2) * decay(len(t_axis(0.006)), 0.0015)
+    add_at(x, 0.25 * click, 0.0)
+    save("pop.wav", x, 0.7)
 
-# 6. Glass chime
-d = 2.2
-x = np.zeros(int(SR * d))
-for k, (fr, amp) in enumerate([(1318.5, 1.0), (1975.5, 0.6), (2637.0, 0.45), (3951.0, 0.2)]):
-    x += amp * sine(fr, d) * decay(len(x), 0.9 / (1 + 0.4 * k))
-save("chime.wav", norm(x, 0.7))
 
-# 7. Notification ding
-d = 0.9
-x = sine(1568, d) * decay(int(SR * d), 0.18) + 0.5 * sine(2352, d) * decay(int(SR * d), 0.12)
-save("ding.wav", norm(x, 0.6))
+def chime():
+    duration = 2.6
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    partials = [
+        (659.25, 0.45, 1.2),
+        (987.77, 0.3, 0.95),
+        (1318.51, 1.0, 0.8),
+        (1975.53, 0.5, 0.55),
+        (2637.02, 0.28, 0.4),
+        (3520.0, 0.12, 0.28),
+    ]
+    for index, (freq, amp, tau) in enumerate(partials):
+        detune = 1.0 + (index - 2) * 0.0008
+        x += amp * np.sin(2.0 * np.pi * freq * detune * t + index * 0.3) * decay(n, tau)
+    x *= np.minimum(1.0, t / 0.008)
+    x = highpass(x, 220.0)
+    save("chime.wav", x, 0.62)
 
-# 8. Paper crumple (cluster of tiny noise bursts)
-d = 1.1
-x = np.zeros(int(SR * d))
-for _ in range(70):
-    pos = int(rng.uniform(0, d - 0.1) * SR)
-    ln = int(rng.uniform(0.006, 0.03) * SR)
-    burst = highpass(rng.standard_normal(ln), 1500, 2) * np.linspace(1, 0, ln) ** 2
-    x[pos:pos + ln] += burst[: len(x[pos:pos + ln])] * rng.uniform(0.3, 1.0)
-x *= np.linspace(1, 0.4, len(x))
-save("crumple.wav", norm(x, 0.8))
 
-# 9. Soft thud
-d = 0.6
-f = 120 * np.exp(-t_axis(d) * 14) + 45
-x = sine(f, d) * decay(int(SR * d), 0.09)
-x += 0.2 * lowpass(noise(d), 600) * decay(int(SR * d), 0.03)
-save("thud.wav", norm(x, 0.9))
+def typing():
+    duration = 1.7
+    x = np.zeros(int(SR * duration))
+    position = 0.02
+    while position < 1.5:
+        n1 = int(SR * 0.014)
+        burst = highpass(noise(0.014), 1800.0, 2)[:n1] * decay(n1, 0.0025)
+        body = sine(175.0, t_axis(0.014))[:n1] * decay(n1, 0.008)
+        click = 0.55 * burst + 0.3 * body
+        add_at(x, click * rng.uniform(0.6, 1.0), position)
+        position += float(rng.uniform(0.055, 0.16))
+    x = lowpass(x, 8500.0)
+    x *= env_ad(len(x), 0.01, 0.12, 1.2)
+    save("typing.wav", x, 0.62)
 
-# 10. Step click
-d = 0.22
-x = sine(1400, d) * decay(int(SR * d), 0.012)
-x += 0.5 * highpass(noise(d), 2500) * decay(int(SR * d), 0.01)
-x += 0.6 * sine(180, d) * decay(int(SR * d), 0.03)
-save("step_click.wav", norm(x, 0.7))
 
-# 11. Tick
-d = 0.18
-x = sine(2200, d) * decay(int(SR * d), 0.01) + 0.4 * sine(3300, d) * decay(int(SR * d), 0.008)
-save("tick.wav", norm(x, 0.6))
+def whoosh():
+    duration = 1.6
+    t = t_axis(duration)
+    n = len(t)
+    u = np.linspace(0.0, 1.0, n)
+    swept = band_sweep(noise(duration), 240.0, 4200.0, q=1.1)
+    env = np.sin(np.pi * np.clip(u * 1.04, 0.0, 1.0)) ** 1.5
+    x = swept * env
+    x += 0.22 * sine(65.0 + 45.0 * u, t) * env**2
+    save("whoosh.wav", x, 0.7)
 
-# 12. Mechanical loop whir
-d = 1.6
-f = np.geomspace(180, 520, int(SR * d))
-x = signal.sawtooth(2 * np.pi * np.cumsum(f) / SR) * 0.35
-x = lowpass(x, 1800)
-x += 0.2 * bandpass_sweep(noise(d), 600, 2200, q=2)
-x *= adsr(len(x), 0.4, 0.5, curve=1.5)
-save("loop_whir.wav", norm(x, 0.55))
 
-# 13. Warm swell
-d = 4.0
-x = np.zeros(int(SR * d))
-for fr in (130.8, 164.8, 196.0, 261.6):
-    x += sine(fr, d) + 0.3 * sine(fr * 2.003, d)
-x = lowpass(x, 1500)
-x *= adsr(len(x), 2.2, 1.6, curve=1.4)
-save("swell.wav", norm(x, 0.6))
+def tick():
+    duration = 0.14
+    t = t_axis(duration)
+    n = len(t)
+    x = sine(2400.0, t) * decay(n, 0.008)
+    x += 0.5 * sine(3600.0, t) * decay(n, 0.005)
+    x += 0.12 * highpass(noise(duration), 3200.0, 2) * decay(n, 0.004)
+    save("tick.wav", x, 0.52)
 
-# 14. Final deep hit
-d = 2.5
-f = 70 * np.exp(-t_axis(d) * 2.0) + 32
-x = sine(f, d) * decay(int(SR * d), 0.9)
-x += 0.3 * lowpass(noise(d), 250) * decay(int(SR * d), 0.12)
-save("final_hit.wav", norm(x, 0.95))
 
-# 15. Shimmer
-d = 2.2
-x = np.zeros(int(SR * d))
-for fr in (2093, 2637, 3136, 3951, 4699):
-    trem = 0.6 + 0.4 * np.sin(2 * np.pi * rng.uniform(4, 9) * t_axis(d))
-    x += sine(fr, d, rng.uniform(0, 6.28)) * trem * 0.4
-x *= adsr(len(x), 0.25, 1.6, curve=1.5)
-save("shimmer.wav", norm(x, 0.45))
+def riser():
+    duration = 1.6
+    t = t_axis(duration)
+    n = len(t)
+    u = np.linspace(0.0, 1.0, n)
+    freq = np.geomspace(200.0, 1800.0, n)
+    x = 0.48 * sine(freq, t)
+    x += 0.5 * band_sweep(noise(duration), 400.0, 9000.0, q=1.4)
+    env = u**1.7
+    release = max(1, int(0.05 * SR))
+    env[-release:] *= np.linspace(1.0, 0.0, release)
+    x *= env
+    save("riser.wav", x, 0.62)
 
+
+def snap():
+    duration = 0.22
+    t = t_axis(duration)
+    n = len(t)
+    x = 0.55 * (sine(900.0 * np.exp(-t * 40.0) + 200.0, t) * decay(n, 0.035))
+    n1 = int(SR * 0.018)
+    click = bandpass(noise(0.018), 1200.0, 6500.0, 2)[:n1] * decay(n1, 0.0025)
+    x[:n1] += 0.7 * click
+    x[:n1] += 0.4 * sine(150.0, t_axis(0.018))[:n1] * decay(n1, 0.006)
+    save("snap.wav", x, 0.72)
+
+
+def rush():
+    duration = 3.2
+    t = t_axis(duration)
+    n = len(t)
+    u = np.linspace(0.0, 1.0, n)
+    swept = band_sweep(noise(duration), 180.0, 3400.0, q=1.15)
+    env = np.exp(-(((u - 0.55) / 0.34) ** 2))
+    x = swept * env
+    x += 0.3 * sine(42.0 + 22.0 * u, t) * env
+    x = highpass(x, 28.0)
+    save("rush.wav", x, 0.7)
+
+
+def shimmer():
+    duration = 1.8
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    partials = [
+        (2093.0, 0.22, 5.1),
+        (2637.0, 0.2, 6.7),
+        (3136.0, 0.18, 4.4),
+        (3951.0, 0.14, 7.3),
+        (5274.0, 0.1, 5.9),
+    ]
+    for freq, amp, rate in partials:
+        tremolo = 0.55 + 0.45 * np.sin(2.0 * np.pi * rate * t + rng.uniform(0.0, 6.28))
+        x += amp * np.sin(2.0 * np.pi * freq * t + rng.uniform(0.0, 6.28)) * tremolo
+    x *= np.minimum(1.0, t / 0.12) * decay(n, 1.2)
+    save("shimmer.wav", x, 0.42)
+
+
+def hum():
+    duration = 8.6
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    partials = [
+        (55.0, 1.0),
+        (110.3, 0.45),
+        (164.8, 0.25),
+        (220.6, 0.15),
+        (330.2, 0.08),
+    ]
+    for index, (freq, amp) in enumerate(partials):
+        x += amp * np.sin(2.0 * np.pi * freq * t + index * 0.7)
+    x += 0.18 * lowpass(noise(duration), 260.0)
+    x *= 0.85 + 0.15 * np.sin(2.0 * np.pi * 0.07 * t)
+    x *= env_ad(n, 1.2, 1.4, 1.2)
+    save("hum.wav", x, 0.4)
+
+
+def ding():
+    duration = 1.15
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    for freq, amp, tau in [(1568.0, 1.0, 0.28), (2352.0, 0.55, 0.18), (3136.0, 0.3, 0.12), (784.0, 0.25, 0.4)]:
+        x += amp * np.sin(2.0 * np.pi * freq * t) * decay(n, tau)
+    x *= np.minimum(1.0, t / 0.004)
+    save("ding.wav", x, 0.55)
+
+
+def thud():
+    duration = 0.75
+    t = t_axis(duration)
+    n = len(t)
+    freq = 42.0 + 105.0 * np.exp(-t * 11.0)
+    x = sine(freq, t) * decay(n, 0.16)
+    x += 0.3 * lowpass(noise(duration), 320.0) * decay(n, 0.03)
+    save("thud.wav", x, 0.82)
+
+
+def crack():
+    duration = 2.2
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    for _ in range(16):
+        start = float(rng.uniform(0.0, 0.55) ** 1.5 * 0.55)
+        length = float(rng.uniform(0.004, 0.018))
+        ln = max(1, int(length * SR))
+        burst = highpass(noise(length), rng.uniform(1800.0, 4200.0), 2)[:ln]
+        burst = burst * decay(ln, rng.uniform(0.0015, 0.004))
+        add_at(x, burst * rng.uniform(0.35, 1.0), start)
+    for freq, amp, tau in [(2600.0, 0.4, 0.5), (3900.0, 0.28, 0.35), (5300.0, 0.16, 0.25), (7000.0, 0.08, 0.15)]:
+        x += amp * np.sin(2.0 * np.pi * freq * t + rng.uniform(0.0, 1.0)) * decay(n, tau)
+    x += 0.5 * sine(80.0 * np.exp(-t * 8.0) + 36.0, t) * decay(n, 0.25)
+    x = highpass(x, 40.0)
+    save("crack.wav", x, 0.62)
+
+
+def dissonant():
+    duration = 1.9
+    t = t_axis(duration)
+    n = len(t)
+    x = 0.55 * np.sin(2.0 * np.pi * 392.0 * t)
+    x += 0.5 * np.sin(2.0 * np.pi * 415.3 * t + 0.4)
+    x += 0.25 * np.sin(2.0 * np.pi * 277.2 * t + 1.1)
+    x += 0.18 * np.sin(2.0 * np.pi * 98.0 * t)
+    x *= 0.75 + 0.25 * np.sin(2.0 * np.pi * 5.5 * t)
+    x *= env_ad(n, 0.22, 0.6, 1.4)
+    x = lowpass(x, 2400.0)
+    save("dissonant.wav", x, 0.45)
+
+
+def warm_swell():
+    duration = 4.4
+    t = t_axis(duration)
+    n = len(t)
+    x = np.zeros(n)
+    partials = [
+        (130.81, 1.0),
+        (164.81, 0.7),
+        (196.0, 0.6),
+        (261.63, 0.5),
+        (329.63, 0.3),
+        (392.0, 0.2),
+    ]
+    for index, (freq, amp) in enumerate(partials):
+        x += amp * np.sin(2.0 * np.pi * freq * t + index * 0.25)
+        x += 0.22 * amp * np.sin(2.0 * np.pi * freq * 2.002 * t + index * 0.5)
+    x = lowpass(x, 1600.0)
+    x *= 0.75 + 0.25 * np.sin(2.0 * np.pi * 0.2 * t)
+    x *= env_ad(n, 1.6, 1.4, 1.5)
+    save("warm_swell.wav", x, 0.48)
+
+
+def main():
+    bass_hit()
+    key_click()
+    pop()
+    chime()
+    typing()
+    whoosh()
+    tick()
+    riser()
+    snap()
+    rush()
+    shimmer()
+    hum()
+    ding()
+    thud()
+    crack()
+    dissonant()
+    warm_swell()
+    print(f"done, files are in {OUT}")
+
+
+if __name__ == "__main__":
+    main()

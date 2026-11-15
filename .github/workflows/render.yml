@@ -1,25 +1,51 @@
-name: Render New York history video
+name: Render How ChatGPT Actually Works
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+    inputs:
+      quality:
+        description: "Render quality"
+        required: true
+        default: final
+        type: choice
+        options:
+          - draft
+          - final
 
 jobs:
   render:
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - run: npx remotion browser ensure
-      - run: npx remotion render src/index.ts NewYorkHistory out/new-york.mp4 --gl=swangle
-      - name: Upload rendered video
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Ensure Remotion browser
+        run: npx remotion browser ensure
+
+      - name: Render silent picture
+        run: npx remotion render src/index.ts HowChatGPTWorks out/video-silent.mp4 --muted --gl=swangle --props=props/${{ inputs.quality }}.json
+
+      - name: Render sound effects only
+        run: npx remotion render src/index.ts HowChatGPTSfx out/sfx.wav --codec=wav --gl=swangle
+
+      - name: Upload video files
         uses: actions/upload-artifact@v4
         with:
-          name: new-york-history
-          path: out/new-york.mp4
+          name: video-files
+          path: |
+            out/video-silent.mp4
+            out/sfx.wav
           if-no-files-found: error
