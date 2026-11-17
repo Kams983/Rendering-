@@ -1,23 +1,25 @@
 {
-  "name": "how-chatgpt-actually-works",
+  "name": "why-you-cant-stop-scrolling",
   "version": "1.0.0",
   "private": true,
-  "description": "A 64 second vertical 3D explainer about how ChatGPT actually works.",
+  "description": "A 64 second vertical 3D product film about the infinite scroll loop.",
   "scripts": {
     "dev": "remotion studio src/index.ts",
     "typecheck": "tsc --noEmit",
     "sfx": "python scripts/generate_sfx.py",
-    "render:video": "remotion render src/index.ts HowChatGPTWorks out/video-silent.mp4 --muted",
-    "render:sfx": "remotion render src/index.ts HowChatGPTSfx out/sfx.wav --codec=wav",
-    "render:full": "remotion render src/index.ts HowChatGPTWorks out/preview-with-sfx.mp4",
-    "render:draft": "remotion render src/index.ts HowChatGPTWorks out/draft.mp4 --props=props/draft.json",
-    "render:final": "remotion render src/index.ts HowChatGPTWorks out/final.mp4 --props=props/final.json"
+    "render:video": "remotion render src/index.ts WhyYouCantStopScrolling out/video-silent.mp4 --muted --gl=swangle --props=props/final.json",
+    "render:sfx": "remotion render src/index.ts StopScrollingSfx out/sfx.wav --codec=wav --gl=swangle",
+    "render:full": "remotion render src/index.ts WhyYouCantStopScrolling out/preview-with-sfx.mp4 --gl=swangle --props=props/final.json",
+    "render:draft": "remotion render src/index.ts WhyYouCantStopScrolling out/draft.mp4 --muted --gl=swangle --props=props/draft.json",
+    "render:final": "remotion render src/index.ts WhyYouCantStopScrolling out/final.mp4 --gl=swangle --props=props/final.json"
   },
   "dependencies": {
     "@react-three/drei": "10.7.9",
     "@react-three/fiber": "9.8.2",
+    "@react-three/postprocessing": "3.2.2",
     "@remotion/cli": "4.0.542",
     "@remotion/three": "4.0.542",
+    "postprocessing": "6.39.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "remotion": "4.0.542",

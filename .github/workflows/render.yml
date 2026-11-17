@@ -1,10 +1,10 @@
-name: Render How ChatGPT Actually Works
+name: Render Why You Can't Stop Scrolling
 
 on:
   workflow_dispatch:
     inputs:
       quality:
-        description: "Render quality"
+        description: "Render quality (draft is fast, final is 1080x1920)"
         required: true
         default: final
         type: choice
@@ -32,14 +32,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Ensure Remotion browser
-        run: npx remotion browser ensure
-
       - name: Render silent picture
-        run: npx remotion render src/index.ts HowChatGPTWorks out/video-silent.mp4 --muted --gl=swangle --props=props/${{ inputs.quality }}.json
+        run: npx remotion render src/index.ts WhyYouCantStopScrolling out/video-silent.mp4 --muted --gl=swangle --props=props/${{ inputs.quality }}.json
 
       - name: Render sound effects only
-        run: npx remotion render src/index.ts HowChatGPTSfx out/sfx.wav --codec=wav --gl=swangle
+        run: npx remotion render src/index.ts StopScrollingSfx out/sfx.wav --codec=wav --gl=swangle
 
       - name: Upload video files
         uses: actions/upload-artifact@v4

@@ -3,12 +3,12 @@ import { AbsoluteFill, Composition } from "remotion";
 import {
   DURATION_IN_FRAMES,
   FPS,
-  QUALITY_SETTINGS,
   QUALITY_PRESETS,
+  QUALITY_SETTINGS,
   resolveQuality,
 } from "./config";
-import { HowChatGPTWorks } from "./Video";
 import type { VideoProps } from "./Video";
+import { WhyYouCantStopScrolling } from "./Video";
 import { Sfx } from "./Sfx";
 
 const SfxOnly: React.FC = () => (
@@ -21,8 +21,8 @@ export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
-        id="HowChatGPTWorks"
-        component={HowChatGPTWorks}
+        id="WhyYouCantStopScrolling"
+        component={WhyYouCantStopScrolling}
         durationInFrames={DURATION_IN_FRAMES}
         fps={FPS}
         width={QUALITY_SETTINGS.width}
@@ -39,7 +39,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="HowChatGPTSfx"
+        id="StopScrollingSfx"
         component={SfxOnly}
         durationInFrames={DURATION_IN_FRAMES}
         fps={FPS}

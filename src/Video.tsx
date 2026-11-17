@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { COLORS, resolveQuality } from "./config";
+import { COLORS } from "./config";
 import type { Quality } from "./config";
 import { Scene3D } from "./Scene3D";
 import { Overlays } from "./Overlays";
@@ -10,12 +10,12 @@ export type VideoProps = {
   quality: Quality;
 };
 
-export const HowChatGPTWorks: React.FC<VideoProps> = ({ quality }) => {
-  const tier = resolveQuality(quality);
-
+export const WhyYouCantStopScrolling: React.FC<VideoProps> = ({
+  quality = "final",
+}) => {
   return (
     <AbsoluteFill style={{ backgroundColor: COLORS.bg }}>
-      <Scene3D quality={tier} />
+      <Scene3D quality={quality} />
       <Overlays />
       <Sfx />
     </AbsoluteFill>

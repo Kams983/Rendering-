@@ -24,18 +24,14 @@ const Caption: React.FC<{
   const { fps } = useVideoConfig();
   const t = frame / fps;
 
-  if (!text) {
-    return null;
-  }
-
-  const entry = interpolate(t, [start + 0.1, start + 0.5], [0, 1], {
+  const entry = interpolate(t, [start + 0.08, start + 0.52], [0, 1], {
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
-  const exit = interpolate(t, [end - 0.28, end - 0.06], [1, 0], clamp);
+  const exit = interpolate(t, [end - 0.34, end - 0.08], [1, 0], clamp);
   const opacity = entry * exit;
 
-  if (opacity <= 0.001) {
+  if (!text || opacity <= 0.002) {
     return null;
   }
 
@@ -43,42 +39,46 @@ const Caption: React.FC<{
     <div
       style={{
         position: "absolute",
-        top: scaleForHeight(158, 1920) * scale,
+        top: scaleForHeight(214, 1920),
         left: 0,
         right: 0,
-        padding: `0 ${64 * scale}px`,
+        padding: `0 ${scaleForHeight(76, 1920)}px`,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         opacity,
-        transform: `translateY(${(1 - entry) * 28 * scale}px)`,
+        transform: `translateY(${(1 - entry) * 26 * scale}px)`,
       }}
     >
       <div
         style={{
-          width: 54 * scale,
-          height: 5 * scale,
-          borderRadius: 3 * scale,
+          width: scaleForHeight(58, 1920),
+          height: scaleForHeight(5, 1920),
+          borderRadius: 99,
           backgroundColor: COLORS.gold,
-          boxShadow: `0 0 ${18 * scale}px ${COLORS.gold}`,
-          marginBottom: 20 * scale,
-          transform: `scaleX(${0.4 + 0.6 * entry})`,
-          transformOrigin: "center",
+          boxShadow: `0 0 ${scaleForHeight(22, 1920)}px ${COLORS.gold}`,
+          marginBottom: scaleForHeight(26, 1920),
+          opacity: 0.9,
+          transform: `scaleX(${0.35 + 0.65 * entry})`,
         }}
       />
       <div
         style={{
-          maxWidth: 940 * scale,
+          maxWidth: scaleForHeight(940, 1920),
           fontFamily: FONT_STACK,
           fontWeight: 800,
-          fontSize: 84 * scale,
-          lineHeight: 1.08,
-          letterSpacing: -1.5 * scale,
+          fontSize: scaleForHeight(88, 1920),
+          lineHeight: 1.04,
+          letterSpacing: scaleForHeight(-1.6, 1920),
           color: COLORS.white,
           textAlign: "center",
-          textShadow: `0 ${8 * scale}px ${36 * scale}px rgba(0,0,0,0.8), 0 0 ${
-            30 * scale
-          }px rgba(92,225,255,0.12)`,
+          textShadow: `0 ${scaleForHeight(10, 1920)}px ${scaleForHeight(
+            40,
+            1920,
+          )}px rgba(0,0,0,0.85), 0 0 ${scaleForHeight(
+            34,
+            1920,
+          )}px rgba(95,227,255,0.16)`,
         }}
       >
         {text}
@@ -87,97 +87,31 @@ const Caption: React.FC<{
   );
 };
 
-const FinalCard: React.FC<{ text: string; scale: number }> = ({
-  text,
-  scale,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const t = frame / fps;
-
-  const entry = interpolate(t, [62.05, 62.6], [0, 1], {
-    ...clamp,
-    easing: Easing.out(Easing.cubic),
-  });
-  const line = interpolate(t, [62.35, 63.1], [0, 1], {
-    ...clamp,
-    easing: Easing.out(Easing.cubic),
-  });
-  const shade = interpolate(t, [61.92, 62.5], [0, 0.92], clamp);
-
-  if (t < 61.95) {
-    return null;
-  }
-
-  return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-      <AbsoluteFill
-        style={{
-          background:
-            "radial-gradient(ellipse at 50% 48%, rgba(5,10,24,0.35) 0%, rgba(5,10,24,0.94) 78%)",
-          opacity: shade,
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          width: 900 * scale,
-          textAlign: "center",
-          opacity: entry,
-          transform: `translateY(${(1 - entry) * 26 * scale}px)`,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: FONT_STACK,
-            fontWeight: 800,
-            fontSize: 96 * scale,
-            lineHeight: 1.08,
-            letterSpacing: -2 * scale,
-            color: COLORS.white,
-            textShadow: `0 0 ${50 * scale}px rgba(92,225,255,0.18), 0 ${
-              10 * scale
-            }px ${40 * scale}px rgba(0,0,0,0.72)`,
-          }}
-        >
-          {text}
-        </div>
-        <div
-          style={{
-            height: 6 * scale,
-            width: 200 * scale,
-            margin: `${34 * scale}px auto 0`,
-            borderRadius: 3 * scale,
-            backgroundColor: COLORS.gold,
-            boxShadow: `0 0 ${24 * scale}px ${COLORS.gold}`,
-            transform: `scaleX(${line})`,
-          }}
-        />
-      </div>
-    </AbsoluteFill>
-  );
-};
-
 export const Overlays: React.FC = () => {
   const { height } = useVideoConfig();
   const scale = height / 1920;
-  const finalScene = SCENES[SCENES.length - 1];
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 47%, rgba(0,0,0,0) 36%, rgba(0,0,0,0.62) 100%)",
+            "radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)",
         }}
       />
       <AbsoluteFill
         style={{
           background:
-            "linear-gradient(180deg, rgba(3,7,18,0.55) 0%, rgba(3,7,18,0) 26%, rgba(3,7,18,0) 72%, rgba(3,7,18,0.35) 100%)",
+            "linear-gradient(180deg, rgba(3,7,16,0.62) 0%, rgba(3,7,16,0.1) 24%, rgba(3,7,16,0) 58%, rgba(3,7,16,0.38) 100%)",
         }}
       />
-      {SCENES.filter((scene) => scene.id !== "final").map((scene) => (
+      <AbsoluteFill
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.28) 100%)",
+        }}
+      />
+      {SCENES.map((scene) => (
         <Caption
           key={scene.id}
           text={scene.caption}
@@ -186,7 +120,6 @@ export const Overlays: React.FC = () => {
           scale={scale}
         />
       ))}
-      <FinalCard text={finalScene.caption} scale={scale} />
     </AbsoluteFill>
   );
 };
