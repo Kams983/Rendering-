@@ -2,6 +2,7 @@ node_modules
 out
 .remotion
 dist
+archive
 *.zip
 *.log
 .DS_Store

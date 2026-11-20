@@ -1,99 +1,141 @@
-export type Quality = "draft" | "final";
-
 /**
- * Project default tier. A render can override it with a quality prop.
- * Every timing in the project is derived from the values below.
+ * Global constants for "5 Beginner Coding Mistakes That Cost Me Hours."
+ *
+ * All timing in this project is authored against a 30 fps reference and then
+ * scaled by S. Cue files are the only place a raw reference frame is allowed.
  */
+
+export const FPS = 60;
+/** 60 fps = 2x the 30 fps reference. Every cue frame is multiplied by this. */
+export const S = FPS / 30;
+
+export type Quality = "preview" | "final";
+
+/** Default quality tier. Override through the `quality` composition prop. */
 export const QUALITY: Quality = "final";
 
-export const FPS = 30;
-export const DURATION_SECONDS = 64;
-export const DURATION_IN_FRAMES = FPS * DURATION_SECONDS;
+/** Independent of QUALITY, exactly as requested. */
+export const SHOW_SUBTITLES = true;
 
-export const resolveQuality = (value: unknown): Quality =>
-  value === "draft" || value === "final" ? value : QUALITY;
-
-export type QualityPreset = {
-  width: number;
-  height: number;
-  shadows: boolean;
-  contactShadows: boolean;
-  postprocessing: boolean;
-  bloom: boolean;
-  depthOfField: boolean;
-  transmission: boolean;
-  reflectFloor: boolean;
-  instanceScale: number;
-  shadowMapSize: number;
-  contactShadowResolution: number;
-  environmentResolution: number;
-  sphereSegments: number;
-  ringSegments: number;
-};
-
-export const QUALITY_PRESETS: Record<Quality, QualityPreset> = {
-  draft: {
-    width: 720,
-    height: 1280,
-    shadows: false,
-    contactShadows: false,
-    postprocessing: false,
-    bloom: false,
-    depthOfField: false,
-    transmission: false,
-    reflectFloor: false,
-    instanceScale: 0.45,
-    shadowMapSize: 512,
-    contactShadowResolution: 96,
-    environmentResolution: 96,
-    sphereSegments: 18,
-    ringSegments: 64,
-  },
-  final: {
-    width: 1080,
-    height: 1920,
-    shadows: true,
-    contactShadows: true,
-    postprocessing: true,
-    bloom: true,
-    depthOfField: true,
-    transmission: true,
-    reflectFloor: true,
-    instanceScale: 1,
-    shadowMapSize: 2048,
-    contactShadowResolution: 512,
-    environmentResolution: 256,
-    sphereSegments: 40,
-    ringSegments: 128,
-  },
-};
-
-export const QUALITY_SETTINGS = QUALITY_PRESETS[QUALITY];
-
-/** Master gain for the effects. The voice is mixed above this later. */
-export const SFX_MASTER_VOLUME = 0.35;
-
-export const COLORS = {
-  bg: "#04070f",
-  navy: "#081226",
-  deepNavy: "#050b18",
-  panel: "#0d1e36",
-  metal: "#aab6c6",
-  cyan: "#5fe3ff",
-  cyanDeep: "#0d6f8c",
-  gold: "#ffc471",
-  violet: "#b79bff",
-  green: "#7dffc4",
-  white: "#f6fbff",
-  dim: "#7e93b5",
+export const VIDEO = {
+  id: "CodingMistakes3D",
+  width: 1080,
+  height: 1920,
+  fps: FPS,
+  durationInFrames: 2820, // 47 seconds at 60 fps
 } as const;
 
-/** System font stack only. No font files are loaded anywhere. */
-export const FONT_STACK =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "DejaVu Sans", sans-serif';
+export type PostSettings = {
+  ao: boolean;
+  dof: boolean;
+  bloom: boolean;
+  glitch: boolean;
+  noise: boolean;
+  vignette: boolean;
+  smaa: boolean;
+  chromatic: boolean;
+};
 
-/** Converts a size designed at 1080x1920 to the current composition height. */
-export const scaleForHeight = (value: number, height: number) =>
-  (value * height) / 1920;
+export type QualitySettings = {
+  /** Instanced glitch cubes. */
+  cubes: number;
+  /** Instanced spark / debris cubes. */
+  particles: number;
+  sparkles: number;
+  shadows: boolean;
+  contactShadows: boolean;
+  transmission: boolean;
+  reflector: boolean;
+  post: PostSettings;
+  motionBlurSamples: number;
+  /** Motion blur costs one WebGL canvas per sample. Keep this conservative. */
+  dpr: number;
+  /** Reserved for the path-traced hero pass (not enabled in this build). */
+  pathTracingSamples: number;
+};
 
-export const secondsToFrames = (seconds: number) => Math.round(seconds * FPS);
+export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
+  preview: {
+    cubes: 180,
+    particles: 800,
+    sparkles: 90,
+    shadows: false,
+    contactShadows: false,
+    transmission: false,
+    reflector: false,
+    post: {
+      ao: false,
+      dof: false,
+      bloom: true,
+      glitch: true,
+      noise: false,
+      vignette: true,
+      smaa: false,
+      chromatic: true,
+    },
+    motionBlurSamples: 1,
+    dpr: 1,
+    pathTracingSamples: 0,
+  },
+  final: {
+    cubes: 420,
+    particles: 2500,
+    sparkles: 240,
+    shadows: true,
+    contactShadows: true,
+    transmission: true,
+    reflector: true,
+    post: {
+      ao: true,
+      dof: true,
+      bloom: true,
+      glitch: true,
+      noise: true,
+      vignette: true,
+      smaa: true,
+      chromatic: true,
+    },
+    // 16 samples would open 16 simultaneous WebGL contexts (and 16 copies of
+    // the scene) through @remotion/motion-blur. 6 is the safe ceiling here.
+    motionBlurSamples: 6,
+    dpr: 1.5,
+    pathTracingSamples: 0,
+  },
+};
+
+export const COLORS = {
+  bg: "#0d1117",
+  bgDeep: "#05070a",
+  red: "#ff3b3b",
+  green: "#3fb950",
+  cyan: "#58a6ff",
+  amber: "#d29922",
+  ink: "#e6edf3",
+  muted: "#8b949e",
+  purple: "#bc8cff",
+} as const;
+
+export type Color = (typeof COLORS)[keyof typeof COLORS];
+
+export const FONT = {
+  display: "'Inter Black', Inter, system-ui, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+} as const;
+
+export const ASSETS = {
+  font3d: "fonts/helvetiker_bold.typeface.json",
+  voice: (file: string) => `voice/${file}`,
+  sfx: (file: string) => `sfx/${file}`,
+  music: "music.wav",
+} as const;
+
+/** Convert a 30 fps reference frame into a 60 fps frame. */
+export const rf = (referenceFrame: number): number =>
+  Math.round(referenceFrame * S);
+
+/** Convert a 30 fps reference duration into 60 fps frames. */
+export const rfDuration = (referenceFrames: number): number =>
+  Math.round(referenceFrames * S);
+
+/** dB helper for the mix. gain(-6) === 0.501. */
+export const dbToGain = (db: number): number => Math.pow(10, db / 20);

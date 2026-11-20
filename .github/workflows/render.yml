@@ -1,29 +1,36 @@
-name: Render Why You Can't Stop Scrolling
+name: Render Coding Mistakes
 
 on:
   workflow_dispatch:
     inputs:
       quality:
-        description: "Render quality (draft is fast, final is 1080x1920)"
+        description: "preview = 540x960 fast check; final = 1620x2880 hero quality"
         required: true
-        default: final
+        default: preview
         type: choice
         options:
-          - draft
+          - preview
           - final
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: render-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 350
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node 20
+      - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -32,17 +39,36 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Render silent picture
-        run: npx remotion render src/index.ts WhyYouCantStopScrolling out/video-silent.mp4 --muted --gl=swangle --props=props/${{ inputs.quality }}.json
+      - name: Synthesise SFX and music
+        run: npm run gen-audio
 
-      - name: Render sound effects only
-        run: npx remotion render src/index.ts StopScrollingSfx out/sfx.wav --codec=wav --gl=swangle
+      - name: Render video
+        env:
+          # Pushes render the fast preview; use "Run workflow" for final.
+          QUALITY: ${{ inputs.quality || 'preview' }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          if [ "$QUALITY" = "final" ]; then
+            echo "Rendering FINAL (1620x2880, hero quality) — this is slow."
+            npx remotion render src/index.ts CodingMistakes3D out/render.mp4 \
+              --gl=swangle \
+              --concurrency=1 \
+              --scale=1.5 \
+              --crf=16 \
+              --props=props/final.json
+          else
+            echo "Rendering PREVIEW (540x960)."
+            npx remotion render src/index.ts CodingMistakes3D out/render.mp4 \
+              --gl=swangle \
+              --concurrency=2 \
+              --scale=0.5 \
+              --props=props/preview.json
+          fi
 
-      - name: Upload video files
+      - name: Upload rendered video
         uses: actions/upload-artifact@v4
         with:
-          name: video-files
-          path: |
-            out/video-silent.mp4
-            out/sfx.wav
+          name: coding-mistakes-${{ inputs.quality || 'preview' }}
+          path: out/render.mp4
           if-no-files-found: error

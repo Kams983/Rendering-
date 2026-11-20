@@ -1,51 +1,18 @@
 import React from "react";
-import { AbsoluteFill, Composition } from "remotion";
-import {
-  DURATION_IN_FRAMES,
-  FPS,
-  QUALITY_PRESETS,
-  QUALITY_SETTINGS,
-  resolveQuality,
-} from "./config";
-import type { VideoProps } from "./Video";
-import { WhyYouCantStopScrolling } from "./Video";
-import { Sfx } from "./Sfx";
-
-const SfxOnly: React.FC = () => (
-  <AbsoluteFill style={{ backgroundColor: "#000000" }}>
-    <Sfx />
-  </AbsoluteFill>
-);
+import { Composition } from "remotion";
+import { QUALITY, VIDEO } from "./config";
+import { World } from "./World";
 
 export const RemotionRoot: React.FC = () => {
   return (
-    <>
-      <Composition
-        id="WhyYouCantStopScrolling"
-        component={WhyYouCantStopScrolling}
-        durationInFrames={DURATION_IN_FRAMES}
-        fps={FPS}
-        width={QUALITY_SETTINGS.width}
-        height={QUALITY_SETTINGS.height}
-        defaultProps={{ quality: "final" } satisfies VideoProps}
-        calculateMetadata={({ props }) => {
-          const preset = QUALITY_PRESETS[resolveQuality(props.quality)];
-          return {
-            durationInFrames: DURATION_IN_FRAMES,
-            fps: FPS,
-            width: preset.width,
-            height: preset.height,
-          };
-        }}
-      />
-      <Composition
-        id="StopScrollingSfx"
-        component={SfxOnly}
-        durationInFrames={DURATION_IN_FRAMES}
-        fps={FPS}
-        width={720}
-        height={1280}
-      />
-    </>
+    <Composition
+      id={VIDEO.id}
+      component={World}
+      durationInFrames={VIDEO.durationInFrames}
+      fps={VIDEO.fps}
+      width={VIDEO.width}
+      height={VIDEO.height}
+      defaultProps={{ quality: QUALITY }}
+    />
   );
 };

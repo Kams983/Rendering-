@@ -1,183 +1,153 @@
-# Why You Can't Stop Scrolling
+# 5 Beginner Coding Mistakes That Cost Me Hours
 
-A 64 second vertical product film about the infinite scroll loop. The picture is a
-real-time 3D scene built in React Three Fiber, rendered with Remotion at 1080x1920,
-30 fps. The phone, the feed cards and every texture are generated in code. There are
-no downloaded assets and no voice track: the render ships silent picture plus a
-separate sound effect bed, so you can drop your voiceover on top in your editor.
+A 47 second vertical 3D short. One persistent "code universe" in a single
+`<ThreeCanvas>`, one camera that flies between eight locations, no cuts.
+1080×1920, 60 fps, 2820 frames.
 
-## Requirements
-
-- Node 18 or newer (the CI workflow uses Node 20).
-- Python 3 with numpy and scipy, only if you want to regenerate the sound effects.
-- Nothing else. There is no HDRI, font, model or texture download anywhere.
+Built with Remotion 4, React Three Fiber, drei and
+`@react-three/postprocessing`. Picture and sound are generated from the frame
+number only: no clocks, no `Math.random`, no real-time physics.
 
 ## Quick start
 
 ```bash
-npm ci
+npm install
 npm run typecheck
-npm run dev        # Remotion Studio, optional, not used by CI
+npm run dev          # Remotion Studio
+```
+
+The previous project's files are preserved in `archive/previous-project/`.
+
+## Structure
+
+```
+src/
+  index.ts                  registerRoot
+  Root.tsx                  <Composition /> 1080×1920 · 60 fps · 2820 frames
+  config.ts                 FPS=60, S=FPS/30, palette, QUALITY tiers
+  World.tsx                 audio + scene + HUD + subtitles
+  fonts.css                 local Inter Black / JetBrains Mono
+  scene/
+    timeline.ts             8 locations, camera keys, captions, travel
+    Scene.tsx               the single <ThreeCanvas>, font gate, motion blur
+    CameraRig.tsx           CatmullRom flight, shake, FOV punches, 360 orbit
+    Props.tsx               desk, IDE, error chips, tiles, copy stack, beacon
+    Caption3D.tsx           extruded Text3D captions with spring slam-in
+    CodePanel.tsx           glass monitor + live CanvasTexture IDE
+    drawCode.ts             syntax highlighting, typing reveal, squiggles
+    Keyboard.tsx            procedural PBR keyboard, frame-synced key travel
+    Timer.tsx               neon 00:15 → 03:00 odometer
+    CubeSwarm.tsx           instanced glitch cubes, detonate/reform
+    Particles.tsx           instanced sparks / debris, stepped ballistics
+    Magnifier.tsx           holographic wireframe detective lens
+    Checkmark.tsx           self-drawing tube checkmark
+    ScreenTear.tsx          raw ShaderMaterial screen-tear overlay
+    Lights.tsx              procedural Environment softboxes + pulse lights
+    Floor.tsx               MeshReflectorMaterial, Grid, neon rails, shadows
+    Post.tsx                N8AO, DoF focus pull, Bloom, CA, Glitch, grain
+  sfx/cues.ts               every cue, authored at 30 fps × S
+  sfx/useSfxImpact.ts       decaying impact / error / slam / bass signals
+  sfx/SfxTrack.tsx          cue playback, missing-file skip, ducking
+  voice/voiceCues.ts        8 VO clips, durations, word timings
+  voice/VoiceTiming.tsx     getAudioDurationInSeconds in delayRender
+  voice/VoiceTrack.tsx      VO at 1.0
+  voice/useVoiceEnergy.ts   visualizeAudio on the active clip
+  voice/Subtitles.tsx       word-level subtitles (SHOW_SUBTITLES)
+  hud/HUD.tsx               small 2D HUD, scanlines, flashes, blackout
+scripts/generate-audio.ts   deterministic WAV synthesiser
+public/sfx/*.wav            30 generated SFX / beds
+public/music.wav            50 s seamless music bed
+public/voice/vo-*.mp3       pre-generated narration
+public/fonts/               Helvetiker 3D font, Inter Black, JetBrains Mono
+```
+
+## Timing rule
+
+Cue frames are written at a 30 fps reference and multiplied by `S = FPS / 30`.
+`src/config.ts` exports `FPS = 60` and `S = 2`; `src/sfx/cues.ts` and
+`src/scene/timeline.ts` are the only files that hold reference frames.
+Changing `FPS` rescales every cue.
+
+Caption slams land on the cue frames in `SLAM_FRAMES`: 60 (3 HOURS), 130
+(READ THE ERROR), 360, 600, 840, 1080, 1115 and 1395.
+
+## Sound
+
+All SFX and music are synthesised locally. No downloads, no libraries, no
+network:
+
+```bash
+npm run gen-audio
+```
+
+`scripts/generate-audio.ts` uses a seeded mulberry32 PRNG, biquad filters,
+ADSR/exponential envelopes, tanh distortion, bitcrushing, feedback-delay
+reverb and a 16-bit PCM WAV encoder. Running it twice produces identical
+files. `npm run render:preview` and `npm run render:final` run it first.
+
+Mix: voice 1.0; SFX 0.35–0.6 ducked to ×0.35 while narration plays; ambient
+hum and music at 0.15, ducked by −6 dB. SFX files that are missing at render
+time log a warning and are skipped; a missing VO clip fails the render with
+its filename.
+
+## Render commands
+
+Preview (half resolution, reduced post, 2 motion-blur samples):
+
+```bash
+npx remotion render src/index.ts CodingMistakes3D out/preview.mp4 \
+  --gl=angle --concurrency=2 --scale=0.5 --props=props/preview.json
+```
+
+Final:
+
+```bash
+npx remotion render src/index.ts CodingMistakes3D out/final.mp4 \
+  --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+```
+
+Hero segments, then concat (`npm run render:segments` does this):
+
+```bash
+npx remotion render src/index.ts CodingMistakes3D out/seg-01.mp4 --frames=0-179    --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-02.mp4 --frames=180-479  --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-03.mp4 --frames=480-899  --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-04.mp4 --frames=900-1319 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-05.mp4 --frames=1320-1739 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-06.mp4 --frames=1740-2219 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-07.mp4 --frames=2220-2639 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+npx remotion render src/index.ts CodingMistakes3D out/seg-08.mp4 --frames=2640-2819 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json
+
+printf "file '%s'\n" out/seg-*.mp4 > out/segments.txt
+ffmpeg -y -f concat -safe 0 -i out/segments.txt -c copy out/final.mp4
 ```
 
 ## Quality tiers
 
-`src/config.ts` exports `QUALITY` plus the presets. A render picks a tier through a
-props file, so the same composition serves both.
+`preview` drops path tracing entirely (it is not in this build), uses 800
+particles, 180 cubes, no shadows/DoF/AO, lower DPR and one motion-blur sample.
+`final` uses 2,500 particles, 420 cubes, shadows, contact shadows,
+transmission glass, reflective floor, N8AO, animated DoF, 6 motion-blur
+samples and 1.5 DPR.
 
-| Tier | Size | Look |
-| --- | --- | --- |
-| `draft` | 720x1280 | No shadows, bloom, depth of field or transmission, fewer instances. Fast preview. |
-| `final` | 1080x1920 | Everything on: post-processing, IBL, 2048 shadow map, contact shadows, transmission glass, reflective floor. |
+## Deliberate deviations
 
-## Render scripts
-
-| Script | What it does | Output |
-| --- | --- | --- |
-| `npm run render:video` | Picture only, `--muted` | `out/video-silent.mp4` |
-| `npm run render:sfx` | Sound effects only, `--codec=wav` | `out/sfx.wav` |
-| `npm run render:full` | Picture with the SFX baked in, preview only | `out/preview-with-sfx.mp4` |
-| `npm run render:draft` | Draft picture quality | `out/draft.mp4` |
-| `npm run render:final` | Final picture quality | `out/final.mp4` |
-
-All render commands use `--gl=swangle` so they behave the same locally and on a
-runner without a GPU. No concurrency is hardcoded.
-
-## GitHub Actions workflow
-
-The only workflow is `.github/workflows/render.yml`. It runs on `workflow_dispatch`
-only.
-
-1. Open the repository on GitHub, go to **Actions**, pick **Render Why You Can't Stop
-   Scrolling** on the left, then **Run workflow**.
-2. Choose the `quality` input. `final` is the default (1080x1920). Pick `draft` when
-   you only want a fast timing check at 720x1280.
-3. Start the run. It checks out the repository, sets up Node 20, runs `npm ci`, runs
-   `npm run typecheck`, renders the silent picture, renders the sound effects, and
-   uploads both files as one artifact.
-4. The job has a 240 minute timeout.
-
-### Where the files are
-
-Open the finished run and scroll to the **Artifacts** section at the bottom of the
-run summary page. Download **video-files**. It contains:
-
-- `video-silent.mp4`: the picture, no audio at all.
-- `sfx.wav`: 64 seconds of sound effects, already quiet enough to sit under a voice.
-
-Individual files can also be downloaded from the run's file list, but the artifact is
-the intended bundle.
-
-## Adding the voice in an editor
-
-1. Start a 1080x1920, 30 fps timeline and drop in `video-silent.mp4`.
-2. Add `sfx.wav` on its own track, aligned to frame 0. Keep it at unity gain: it is
-   already mixed to roughly 0.35 master level so it leaves room for a voice.
-3. Place one voice clip per line at the start times below. Do not stretch the film to
-   fit the voice. If a line runs long, trim it, do not retime the picture.
-
-| Line | Scene | Voice start (s) | Voice end (s) |
-| --- | --- | --- | --- |
-| 1 | THE NEXT ONE | 0.3 | 2.4 |
-| 2 | WHAT COMES NEXT? | 2.5 | 6.3 |
-| 3 | MAYBE THIS ONE | 6.5 | 11.1 |
-| 4 | UNPREDICTABLE REWARD | 11.3 | 15.1 |
-| 5 | UNCERTAINTY MATTERS | 15.3 | 20.3 |
-| 6 | DOPAMINE ISN'T JOY | 20.5 | 26.7 |
-| 7 | WANTING THE NEXT REWARD | 26.9 | 33.9 |
-| 8 | NO STOPPING POINT | 34.1 | 42.6 |
-| 9 | ANOTHER REASON TO CHECK | 42.9 | 48.2 |
-| 10 | MORE SCROLLING, MORE BOREDOM | 48.5 | 53.5 |
-| 11 | ONE MORE SWIPE | 53.7 | 57.5 |
-| 12 | CREATE A STOPPING CUE | 57.7 | 61.9 |
-| 13 | BREAK THE LOOP | 62.1 | 64.0 |
-
-Useful mix notes:
-
-- No voice is baked into any render. `video-silent.mp4` is muted, `sfx.wav` is
-  effects only.
-- Nothing sustained exceeds 0.25 of full scale during a voice window, so you should
-  not need to duck the bed.
-- The last second is a held still frame with a soft decay, so a final voice line can
-  ring out without being cut off.
-
-## Retiming
-
-`src/timeline.ts` is the single source of truth. It holds `SCENES`, an array of
-`{ id, start, end, caption }` in seconds, and `VOICE_WINDOWS` for reference. Every
-scene, caption fade and sound cue is derived from those times:
-
-- `src/Scene3D.tsx` switches scenes and drives every animation from scene local time.
-- `src/Overlays.tsx` renders captions in the top third, faded and rising on entry.
-- `src/Sfx.tsx` builds its cue table from `sceneStart(id)` plus small offsets.
-
-To change a scene length, edit its `start` and `end` values only. Everything else
-follows, including the audio cues. If you move a scene start, the voice table in this
-README is the only thing that needs updating by hand.
-
-## Sound effects
-
-`scripts/generate_sfx.py` synthesizes every effect with numpy and scipy and writes the
-wav files into `public/audio`. Nothing is sampled or downloaded.
-
-```bash
-npm run sfx
-```
-
-The generated wav files are committed, so `npm ci` plus a render is enough. Python is
-not needed in CI. Files:
-
-`low_hit`, `swish`, `dull_swipe`, `chime`, `tick`, `flash`, `pulse_hum`, `swell`,
-`tunnel`, `ping`, `glass_tap`, `timer_tick`, `decay`.
-
-Cue times live in one constants array at the top of `src/Sfx.tsx`, all expressed as
-scene start plus offset.
-
-## Project layout
-
-```
-src/config.ts        Quality tiers, palette, frame rate, master SFX gain
-src/timeline.ts      Scene array with ids, start, end, caption, plus voice windows
-src/Scene3D.tsx      Camera, lights, environment, post-processing and the 13 scenes
-src/Phone.tsx        Code-built phone, procedural screen texture, glass barrier
-src/Cards.tsx        Procedural card art, abstract symbols, instanced card streams
-src/Overlays.tsx     Captions, lens vignette, grade
-src/Sfx.tsx          Cue table that plays the procedural wav files
-src/Video.tsx        Composition that stacks 3D, overlays and sound
-src/Root.tsx         Registers the video composition and the audio-only composition
-src/index.ts         Remotion entry point
-scripts/generate_sfx.py
-public/audio          Generated wav files
-props                 draft.json and final.json quality props
-```
-
-## Look and technical notes
-
-- Hero object: rounded glass and brushed metal phone, 0.08 body radius, dark glass
-  front with a slightly emissive procedural screen and a two lens camera bump.
-- Feed cards: rounded glass tiles with clearcoat bodies and emissive procedural faces,
-  abstract icons and blank caption bars, no readable text anywhere.
-- Lighting: drei `Environment` with white, cyan and gold `Lightformer` panels, plus one
-  directional light with a 2048 shadow map and `ContactShadows`. If you drop a file at
-  `public/hdri/studio.hdr`, it is picked up automatically through `staticFile`.
-- Post: `EffectComposer multisampling={0}` with Bloom 0.7 at 0.6 threshold and mipmap
-  blur, timeline-driven DepthOfField, Vignette and Noise grain.
-- Instancing: card streams, the tunnel and the dust are all single instanced or points
-  draws, not hundreds of meshes.
-- Transmission is used only on the phone glass and the scene 12 barrier, since it is
-  expensive. The cards use clearcoat and emissive faces instead.
-- Animation is frame driven through `useCurrentFrame` only. There is no `useFrame`, no
-  `useAnimations`, no real time clock and no `localStorage` anywhere in `src`.
-- Text is system font only (`-apple-system`, Segoe UI, Roboto and fallbacks). Captions
-  are keywords, not subtitles.
-- No people, faces, hands or fingers appear at any point.
-
-## Troubleshooting
-
-- If the final render is slow on a laptop, use `draft` while you check timing. The
-  final tier renders transmission glass, depth of field and a reflective floor, which
-  cost real time under software GL.
-- If a render complains about a missing browser, run `npx remotion browser ensure`
-  once. GitHub's runners download it on the first render automatically.
-- If you add `public/hdri/studio.hdr`, keep it small. The lightformer rig is the
-  default and needs no file at all.
+- **Path tracing / three-gpu-pathtracer** is not enabled. It cannot run inside a
+  deterministic Remotion frame at 256 samples without a GPU bake, so hero
+  frames use the raster pipeline with a strong bloom/DoF/grade instead.
+- **three.quarks / rapier / three-pinata** are replaced by analytic,
+  frame-stepped instanced particles. The motion is baked per frame, which is
+  the determinism requirement, and it removes a large runtime dependency.
+- **AccumulativeShadows** is omitted; ContactShadows plus a shadow-casting key
+  light keep the scene deterministic.
+- **CameraMotionBlur** is capped at 6 samples. Each sample is its own WebGL
+  canvas, and 16 copies of a 1080×1920 scene would exhaust GPU memory. Set
+  `motionBlurSamples` to 1 in `QUALITY_SETTINGS.final` for a strict
+  single-`<ThreeCanvas>` build with no temporal blur.
+- **troika/glTF/KTX2 assets** are not used. All text is offline Text3D and all
+  surfaces are procedural, so the project renders with no network access.
+- The eight supplied VO clips are longer than their scene slots (measured:
+  3.79 s, 8.99 s, 7.39 s, 12.51 s, 7.81 s, 12.20 s, 6.27 s, 3.40 s). They are
+  placed on the specified start frames exactly, so consecutive clips overlap
+  where the narration runs past its scene. Trim the MP3s or move the start
+  frames in `src/voice/voiceCues.ts` if you want strict one-clip-per-scene.
