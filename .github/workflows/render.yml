@@ -20,7 +20,7 @@ env:
 jobs:
   parts:
     name: part-${{ matrix.part }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 340
     strategy:
       fail-fast: false
@@ -37,23 +37,18 @@ jobs:
           cache: npm
 
       - name: Install ffmpeg and Chromium libraries
-        # 24.04 ships the t64 variants of a few of these; install whichever
-        # name exists so the step does not fail on a missing package.
         run: |
-          set -euo pipefail
           sudo apt-get update
-          wanted="ffmpeg libnss3 libdbus-1-3 libatk1.0-0 libatk1.0-0t64 libasound2 libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libgbm-dev libcups2 libcups2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64"
-          install=""
-          for pkg in $wanted; do
-            if apt-cache show "$pkg" >/dev/null 2>&1; then
-              install="$install $pkg"
-            fi
-          done
-          echo "Installing:$install"
-          sudo apt-get install -y --no-install-recommends $install
+          sudo apt-get install -y ffmpeg libnss3 libdbus-1-3 libatk1.0-0t64 \
+            libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 \
+            libxcomposite1 libxdamage1 libgbm-dev libcups2t64 \
+            libatk-bridge2.0-0t64
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Download Chrome for Remotion
+        run: npx remotion browser ensure
 
       - name: Measure and fit voice-over
         run: npm run voice:prepare
@@ -87,7 +82,7 @@ jobs:
   merge:
     name: merge
     needs: parts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 340
     steps:
       - name: Check out repository
@@ -101,20 +96,17 @@ jobs:
 
       - name: Install ffmpeg and Chromium libraries
         run: |
-          set -euo pipefail
           sudo apt-get update
-          wanted="ffmpeg libnss3 libdbus-1-3 libatk1.0-0 libatk1.0-0t64 libasound2 libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libgbm-dev libcups2 libcups2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64"
-          install=""
-          for pkg in $wanted; do
-            if apt-cache show "$pkg" >/dev/null 2>&1; then
-              install="$install $pkg"
-            fi
-          done
-          echo "Installing:$install"
-          sudo apt-get install -y --no-install-recommends $install
+          sudo apt-get install -y ffmpeg libnss3 libdbus-1-3 libatk1.0-0t64 \
+            libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 \
+            libxcomposite1 libxdamage1 libgbm-dev libcups2t64 \
+            libatk-bridge2.0-0t64
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Download Chrome for Remotion
+        run: npx remotion browser ensure
 
       - name: Measure and fit voice-over
         run: npm run voice:prepare
