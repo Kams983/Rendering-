@@ -1,11 +1,11 @@
 /**
  * Eight camera locations and their captions, authored at the 30 fps reference.
- * The camera holds at a location and travels in the tail of its window, so a
- * caption always lands after the camera has arrived.
+ * Every caption is pinned to its scene window: it slams in a fixed number of
+ * frames after the scene starts and fades out before the scene ends. Nothing
+ * in this file reacts to voice-over timing.
  */
 import { COLORS, rf, type Color } from "../config";
 import { inverseLerp, smoothstep } from "../utils/math";
-import { SLAM_FRAMES } from "../sfx/cues";
 
 export type Vec3 = [number, number, number];
 
@@ -26,6 +26,10 @@ export type Station = {
   refEnd: number;
   start: number;
   end: number;
+  /** Fixed frame the caption slams in on (scene start + delay). */
+  inFrame: number;
+  /** Fixed frame the caption is gone by (scene end). */
+  outFrame: number;
   label: string;
   lines: [string, string];
   color: Color;
@@ -35,15 +39,27 @@ export type Station = {
   caption: Vec3;
   captionYaw: number;
   fov: number;
-  slamFrame: number;
   z: number;
   captionY: number;
 };
 
 type StationBase = Omit<
   Station,
-  "index" | "start" | "end" | "camera" | "look" | "caption" | "captionYaw" | "z" | "captionY"
+  | "index"
+  | "start"
+  | "end"
+  | "inFrame"
+  | "outFrame"
+  | "camera"
+  | "look"
+  | "caption"
+  | "captionYaw"
+  | "z"
+  | "captionY"
 > & { captionY?: number };
+
+/** Caption slam delay after the scene starts, at the 30 fps reference. */
+export const CAPTION_DELAY_REF = 10;
 
 const Z = [0, -8, -16, -24, -32, -40, -48, -56] as const;
 const CAMERA: Vec3[] = [
@@ -73,7 +89,6 @@ const base: StationBase[] = [
     size: 0.56,
     fov: 54,
     captionY: 3.55,
-    slamFrame: SLAM_FRAMES.hook,
   },
   {
     id: "errors" as const,
@@ -84,7 +99,6 @@ const base: StationBase[] = [
     color: COLORS.red,
     size: 0.52,
     fov: 48,
-    slamFrame: SLAM_FRAMES.m1,
   },
   {
     id: "onechg" as const,
@@ -95,7 +109,6 @@ const base: StationBase[] = [
     color: COLORS.amber,
     size: 0.5,
     fov: 52,
-    slamFrame: SLAM_FRAMES.m2,
   },
   {
     id: "copy" as const,
@@ -106,7 +119,6 @@ const base: StationBase[] = [
     color: COLORS.red,
     size: 0.52,
     fov: 50,
-    slamFrame: SLAM_FRAMES.m3,
   },
   {
     id: "typo" as const,
@@ -117,7 +129,6 @@ const base: StationBase[] = [
     color: COLORS.cyan,
     size: 0.4,
     fov: 41,
-    slamFrame: SLAM_FRAMES.m4,
   },
   {
     id: "help" as const,
@@ -128,7 +139,6 @@ const base: StationBase[] = [
     color: COLORS.red,
     size: 0.44,
     fov: 50,
-    slamFrame: SLAM_FRAMES.m5,
   },
   {
     id: "payoff" as const,
@@ -139,7 +149,6 @@ const base: StationBase[] = [
     color: COLORS.green,
     size: 0.38,
     fov: 54,
-    slamFrame: SLAM_FRAMES.payoff,
   },
   {
     id: "end" as const,
@@ -150,18 +159,21 @@ const base: StationBase[] = [
     color: COLORS.green,
     size: 0.52,
     fov: 58,
-    slamFrame: SLAM_FRAMES.end,
   },
 ];
 
 export const STATIONS: Station[] = base.map((station, index) => {
   const z = Z[index];
   const captionY = station.captionY ?? CAPTION_Y;
+  const start = rf(station.refStart);
+  const end = rf(station.refEnd);
   return {
     ...station,
     index,
-    start: rf(station.refStart),
-    end: rf(station.refEnd),
+    start,
+    end,
+    inFrame: start + rf(CAPTION_DELAY_REF),
+    outFrame: end,
     z,
     captionY,
     camera: CAMERA[index],
@@ -215,29 +227,8 @@ export const fovBlendAt = (frame: number): number => {
   return station.fov + (STATIONS[index + 1].fov - station.fov) * t;
 };
 
-/** How far CameraRig pulls the lens toward 40 mm on a slam (0..1 * 0.7). */
-export const PUNCH_STRENGTH = 0.7;
-export const PUNCH_FOV = 40;
-
-/**
- * Narrowest FOV the caption ever sees: the station blend plus the worst-case
- * punch-in, sampled across the caption's visible life. Captions are fitted to
- * this, so a 60 -> 40 punch can never clip them.
- */
-export const captionFov = (station: Station): number => {
-  const start = station.slamFrame;
-  const end = Math.max(start, station.end);
-  let narrowest = station.fov;
-  for (let frame = start; frame <= end; frame += 4) {
-    const base = fovBlendAt(frame);
-    const punched = base + (PUNCH_FOV - base) * PUNCH_STRENGTH;
-    narrowest = Math.min(narrowest, base, punched);
-  }
-  return Math.max(20, narrowest);
-};
-
 /** Absolute frame at which a station's caption lands. */
-export const slamFrameOf = (station: Station): number => station.slamFrame;
+export const slamFrameOf = (station: Station): number => station.inFrame;
 
 /** 0..1 progress inside a station's own window. */
 export const stationLocal = (frame: number, station: Station): number =>

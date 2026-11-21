@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React from "react";
 import * as THREE from "three";
 import {
   Bloom,
@@ -12,10 +12,9 @@ import {
   Vignette,
 } from "@react-three/postprocessing";
 import { GlitchMode } from "postprocessing";
-import { useThree } from "@react-three/fiber";
-import { continueRender, delayRender, useCurrentFrame } from "remotion";
+import { useCurrentFrame } from "remotion";
 import type { QualitySettings } from "../config";
-import { postParamsAt } from "./postParams";
+import { stationForFrame } from "./timeline";
 
 type PostProps = {
   settings: QualitySettings;
@@ -27,10 +26,6 @@ type PostProps = {
 /**
  * N8AO, animated depth of field, bloom, chromatic aberration, error-only
  * glitch, film noise and vignette. SMAA runs last.
- *
- * Every value that reaches a pass is clamped to a finite range in
- * postParamsAt(): a single NaN (impact, focus distance, FOV) blanks the whole
- * effect chain, which renders as a black frame.
  */
 export const Post: React.FC<PostProps> = ({
   settings,
@@ -38,44 +33,32 @@ export const Post: React.FC<PostProps> = ({
   error,
   energy,
 }) => {
+  const blur = settings.post.glitch && error > 0.08;
   const frame = useCurrentFrame();
-  const p = postParamsAt(frame, impact, error, energy);
 
-  // <ThreeCanvas> installs the render size in a layout effect, after the
-  // composer's first render. Building the chain before that creates 0x0 render
-  // targets and every pass outputs black, so wait for a real viewport and
-  // rebuild whenever it changes.
-  const size = useThree((state) => state.size);
-  const ready = size.width > 0 && size.height > 0;
-  const advance = useThree((state) => state.advance);
-  // The composer builds its pass chain in an effect, so the first advance of a
-  // page happens with an empty chain: the render pass still clears and the
-  // canvas stays black. Hold the capture until the chain exists and has drawn
-  // once. This runs once per page (and per resize), never twice per
-  // composition frame.
-  const [handle] = useState(() => delayRender("Waiting for the post chain"));
-  const gate = useRef({ handled: false, handle });
-
-  const glitch = settings.post.glitch && p.glitchActive;
-
-  if (!ready) {
-    return null;
-  }
+  // Animated focus pull: the lens tracks the hero prop of the active station
+  // and pulls slightly closer on every impact.
+  const station = stationForFrame(frame);
+  const focus = Math.max(
+    1.4,
+    Math.hypot(
+      station.camera[0] - station.caption[0],
+      station.camera[1] - station.caption[1],
+      station.camera[2] - station.caption[2],
+    ) - impact * 0.6,
+  );
 
   return (
     <EffectComposer
-      key={`${size.width}x${size.height}`}
       multisampling={0}
       enableNormalPass={settings.post.ao}
       resolutionScale={1}
     >
-      <PostChainReady advance={advance} gate={gate} />
-
       {settings.post.ao ? (
         <N8AO
-          aoRadius={p.aoRadius}
-          intensity={p.aoIntensity}
-          distanceFalloff={p.aoFalloff}
+          aoRadius={1.4}
+          intensity={1.35}
+          distanceFalloff={1.2}
           quality="performance"
           halfRes
         />
@@ -83,91 +66,50 @@ export const Post: React.FC<PostProps> = ({
 
       {settings.post.dof ? (
         <DepthOfField
-          worldFocusDistance={p.focus}
-          worldFocusRange={p.focusRange}
-          bokehScale={p.bokeh}
+          worldFocusDistance={focus}
+          worldFocusRange={4.2 + impact * 2}
+          bokehScale={2.2 + impact * 2.4}
         />
       ) : null}
 
       {settings.post.bloom ? (
         <Bloom
-          intensity={p.bloomIntensity}
-          luminanceThreshold={p.bloomThreshold}
-          luminanceSmoothing={p.bloomSmoothing}
+          intensity={1.15 + impact * 2.4 + energy * 0.35}
+          luminanceThreshold={0.22}
+          luminanceSmoothing={0.28}
           mipmapBlur
-          radius={p.bloomRadius}
+          radius={0.72}
         />
       ) : null}
 
       {settings.post.chromatic ? (
         <ChromaticAberration
-          offset={new THREE.Vector2(p.caX, p.caY)}
+          offset={
+            new THREE.Vector2(
+              0.0007 + impact * 0.0045 + error * 0.002,
+              0.0004 + impact * 0.002,
+            )
+          }
           radialModulation={false}
           modulationOffset={0}
         />
       ) : null}
 
-      {glitch ? (
+      {blur ? (
         <Glitch
           active
-          // SPORADIC can hold the screen on a full-slice displacement for a
-          // frame. CONSTANT_MILD keeps the tear readable and never blanks.
-          mode={GlitchMode.CONSTANT_MILD}
-          strength={new THREE.Vector2(p.glitchX, p.glitchY)}
-          duration={new THREE.Vector2(0.12, 0.3)}
-          delay={new THREE.Vector2(0.5, 1.4)}
+          mode={GlitchMode.SPORADIC}
+          strength={new THREE.Vector2(0.01 + error * 0.03, 0.02 + error * 0.12)}
+          duration={new THREE.Vector2(0.08, 0.28)}
+          delay={new THREE.Vector2(0.4, 1.2)}
         />
       ) : null}
 
-      {settings.post.noise ? <Noise opacity={p.noiseOpacity} /> : null}
+      {settings.post.noise ? <Noise opacity={0.045} /> : null}
       {settings.post.vignette ? (
-        <Vignette
-          eskil={false}
-          offset={p.vignetteOffset}
-          darkness={p.vignetteDarkness}
-        />
+        <Vignette eskil={false} offset={0.2} darkness={0.82} />
       ) : null}
       {settings.post.smaa ? <SMAA /> : null}
     </EffectComposer>
   );
-};
-
-/**
- * Renders nothing, but mounts only after the composer's pass chain is built
- * (the composer renders no children until then). It draws the current frame
- * through the chain and only then releases the capture gate, so a captured
- * frame always has its effects.
- */
-const PostChainReady: React.FC<{
-  advance: (timestamp: number) => void;
-  gate: React.RefObject<{ handled: boolean; handle: number }>;
-}> = ({ advance, gate }) => {
-  useLayoutEffect(() => {
-    const state = gate.current;
-    if (!state || state.handled) {
-      return undefined;
-    }
-    state.handled = true;
-    let done = false;
-    const finish = (): void => {
-      if (done) {
-        return;
-      }
-      done = true;
-      advance(performance.now());
-      continueRender(state.handle);
-    };
-    // One animation frame later the composer's pass chain is fully built, so
-    // the frame that gets captured already has bloom/DOF/CA applied.
-    const raf = requestAnimationFrame(finish);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (!done) {
-        done = true;
-        continueRender(state.handle);
-      }
-    };
-  }, [advance, gate]);
-
-  return null;
 };

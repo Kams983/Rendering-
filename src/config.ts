@@ -6,27 +6,13 @@
  */
 
 export const FPS = 30;
-/** Composition fps over the 30 fps reference. 1.0 at 30 fps. */
+/** 30 fps = the authoring reference. Every cue frame is multiplied by this. */
 export const S = FPS / 30;
-
-/**
- * Per-frame rate multiplier for motion authored at 60 fps (noise drift, shake,
- * swing). Multiplying a `frame * k` term by PACE keeps its speed in seconds
- * identical to the 60 fps cut instead of halving it.
- */
-export const PACE = 60 / FPS;
-
-/** Convert a frame count authored at 60 fps into this composition's frames. */
-export const frames60 = (frames: number): number =>
-  Math.max(1, Math.round((frames * FPS) / 60));
 
 export type Quality = "preview" | "ci" | "final";
 
-/**
- * Default quality tier. `ci` is the cheap CPU-profile used by CI: no AO, no
- * depth of field, no transmission/reflection, no motion blur, no shadows.
- */
-export const QUALITY: Quality = "ci";
+/** Default quality tier. Override through the `quality` composition prop. */
+export const QUALITY: Quality = "final";
 
 /** Independent of QUALITY, exactly as requested. */
 export const SHOW_SUBTITLES = true;
@@ -68,8 +54,7 @@ export type QualitySettings = {
   pathTracingSamples: number;
 };
 
-export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
-  preview: {
+const PREVIEW_SETTINGS: QualitySettings = {
     cubes: 180,
     particles: 800,
     sparkles: 90,
@@ -90,31 +75,12 @@ export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
     motionBlurSamples: 1,
     dpr: 1,
     pathTracingSamples: 0,
-  },
-  // CPU-only profile for GitHub Actions: bloom + vignette + mild chromatic
-  // aberration + SMAA, and nothing that renders offscreen buffers per material.
-  ci: {
-    cubes: 1000,
-    particles: 500,
-    sparkles: 80,
-    shadows: false,
-    contactShadows: false,
-    transmission: false,
-    reflector: false,
-    post: {
-      ao: false,
-      dof: false,
-      bloom: true,
-      glitch: false,
-      noise: false,
-      vignette: true,
-      smaa: true,
-      chromatic: true,
-    },
-    motionBlurSamples: 1,
-    dpr: 1,
-    pathTracingSamples: 0,
-  },
+};
+
+export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
+  preview: PREVIEW_SETTINGS,
+  /** CI uses the cheap preview settings. */
+  ci: PREVIEW_SETTINGS,
   final: {
     cubes: 420,
     particles: 2500,
@@ -167,11 +133,11 @@ export const ASSETS = {
   music: "music.wav",
 } as const;
 
-/** Convert a 30 fps reference frame into a composition frame. */
+/** Convert a 30 fps reference frame into a 60 fps frame. */
 export const rf = (referenceFrame: number): number =>
   Math.round(referenceFrame * S);
 
-/** Convert a 30 fps reference duration into composition frames. */
+/** Convert a 30 fps reference duration into 60 fps frames. */
 export const rfDuration = (referenceFrames: number): number =>
   Math.round(referenceFrames * S);
 

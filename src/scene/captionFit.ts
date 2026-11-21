@@ -1,80 +1,174 @@
-import { clamp } from "../utils/math";
-
 /**
- * 1080x1920 with 60 px side margins. 960 / 1080 = 0.8889, so 88% is the
- * stricter of the two limits and is what captions are fitted to.
+ * Caption fitting.
+ *
+ * Text3D geometry is sized in world units, so its on-screen width depends on
+ * how far the caption sits from the camera and on the lens. These helpers turn
+ * the typeface metrics into a scale factor that keeps every caption inside a
+ * safe box: 85% of the visible width at the caption's own depth (measured with
+ * the narrowest lens the scene can use) and never past a 60px margin on a
+ * 1080px frame.
  */
-export const SAFE_WIDTH_RATIO = 0.88;
-/** Two lines may not eat more than 60% of the frustum height. */
-export const SAFE_HEIGHT_RATIO = 0.6;
+import { VIDEO } from "../config";
+import type { Station, Vec3 } from "./timeline";
 
-export type Extent = { width: number; height: number };
-
-/**
- * Visible frustum size at a given depth:
- *   height = 2 * dist * tan(fov / 2)
- *   width  = height * aspect
- */
-export const visibleExtent = (
-  dist: number,
-  fovDeg: number,
-  aspect: number,
-): Extent => {
-  const depth = Math.max(0.01, Number.isFinite(dist) ? dist : 0.01);
-  const fov = clamp(Number.isFinite(fovDeg) ? fovDeg : 50, 1, 179);
-  const height = 2 * depth * Math.tan((fov * Math.PI) / 360);
-  return { width: height * aspect, height };
+export type Typeface = {
+  glyphs: Record<string, { ha: number }>;
+  resolution?: number;
 };
 
-/** Largest scale <= 1 that keeps the measured box inside the safe area. */
-export const fitScale = (
-  box: { width: number; height: number },
-  dist: number,
-  fovDeg: number,
-  aspect: number,
+/** Safe area on each side of the 1080px frame. */
+export const SAFE_MARGIN_PX = 60;
+/** Share of the visible width a caption may occupy. */
+export const MAX_WIDTH_RATIO = 0.85;
+/** CameraRig punches the lens toward 40deg on every slam. */
+export const NARROWEST_FOV = 40;
+
+export const SLAM_DELAY_FRAMES = 10;
+export const FADE_OUT_FRAMES = 8;
+
+const ASPECT = VIDEO.width / VIDEO.height;
+const PIXEL_LIMIT = Math.min(
+  MAX_WIDTH_RATIO * VIDEO.width,
+  VIDEO.width - 2 * SAFE_MARGIN_PX,
+);
+
+const length = (v: Vec3): number => Math.hypot(v[0], v[1], v[2]);
+
+/** Width of one line in world units, from the typeface advances. */
+export const measureLineWidth = (
+  typeface: Typeface,
+  text: string,
+  size: number,
+  letterSpacing: number,
 ): number => {
-  const extent = visibleExtent(dist, fovDeg, aspect);
-  const boxWidth = box.width > 1e-4 ? box.width : 1e-4;
-  const boxHeight = box.height > 1e-4 ? box.height : 1e-4;
-  const byWidth = (extent.width * SAFE_WIDTH_RATIO) / boxWidth;
-  const byHeight = (extent.height * SAFE_HEIGHT_RATIO) / boxHeight;
-  return clamp(Math.min(1, byWidth, byHeight), 0.05, 1);
+  const unitsPerEm = typeface.resolution ?? 1000;
+  const scale = size / unitsPerEm;
+  const fallback = typeface.glyphs["?"]?.ha ?? 0;
+  let width = 0;
+  let glyphs = 0;
+  for (const char of text) {
+    if (char === " ") {
+      width += (fallback || 400) * scale;
+    } else {
+      width += (typeface.glyphs[char]?.ha ?? fallback) * scale;
+    }
+    width += letterSpacing * size;
+    glyphs += 1;
+  }
+  if (glyphs > 1) {
+    // TextGeometry adds the tracking after the last glyph too; drop one.
+    width -= letterSpacing * size;
+  }
+  return Math.max(width, 0.0001);
+};
+
+export const measureTextWidth = (
+  typeface: Typeface,
+  lines: string[],
+  size: number,
+  letterSpacing: number,
+): number =>
+  Math.max(
+    0.0001,
+    ...lines.map((line) => measureLineWidth(typeface, line, size, letterSpacing)),
+  );
+
+/** Distance from the camera to the caption, along the camera's forward axis. */
+export const cameraDepth = (camera: Vec3, look: Vec3, point: Vec3): number => {
+  const forward: Vec3 = [look[0] - camera[0], look[1] - camera[1], look[2] - camera[2]];
+  const forwardLength = length(forward) || 1;
+  const offset: Vec3 = [
+    point[0] - camera[0],
+    point[1] - camera[1],
+    point[2] - camera[2],
+  ];
+  const depth =
+    (offset[0] * forward[0] + offset[1] * forward[1] + offset[2] * forward[2]) /
+    forwardLength;
+  return Math.max(0.5, depth);
+};
+
+/** Width of the frame in world units at a given depth and vertical fov. */
+export const visibleWidthAt = (depth: number, fov: number): number =>
+  2 * depth * Math.tan((fov * Math.PI) / 360) * ASPECT;
+
+/** Narrowest lens the camera can use while a station's caption is on screen. */
+export const narrowestFov = (station: Station, nextFov?: number): number =>
+  Math.min(station.fov, nextFov ?? station.fov, NARROWEST_FOV);
+
+export type FitResult = {
+  scale: number;
+  measuredWidth: number;
+  fittedWidth: number;
+  limitWidth: number;
+  /** Fitted width as a share of the allowed width. */
+  percent: number;
+  fov: number;
+  depth: number;
+};
+
+const fitAt = (
+  typeface: Typeface,
+  lines: string[],
+  size: number,
+  letterSpacing: number,
+  depth: number,
+  fov: number,
+): FitResult => {
+  const measuredWidth = measureTextWidth(typeface, lines, size, letterSpacing);
+  const frameWidth = visibleWidthAt(depth, fov);
+  const worldLimit = (PIXEL_LIMIT / VIDEO.width) * frameWidth;
+  const scale = Math.min(1, worldLimit / measuredWidth);
+  const fittedWidth = measuredWidth * scale;
+  return {
+    scale,
+    measuredWidth,
+    fittedWidth,
+    limitWidth: worldLimit,
+    percent: (fittedWidth / worldLimit) * 100,
+    fov,
+    depth,
+  };
+};
+
+/** Fit a station's hero caption at its own position and camera. */
+export const fitCaption = (
+  typeface: Typeface,
+  stations: Station[],
+  station: Station,
+  letterSpacing = 0.015,
+): FitResult => {
+  const fov = narrowestFov(station, stations[station.index + 1]?.fov);
+  const depth = cameraDepth(station.camera, station.look, station.caption);
+  return fitAt(typeface, station.lines.slice(0, 2), station.size, letterSpacing, depth, fov);
 };
 
 /**
- * Never more than two lines. If an author ever writes three, the words are
- * re-split into two lines of near-equal length instead of clipping.
+ * Fit a prop label (error chips, numbered cards, ASK / SEARCH / LEARN) using
+ * the camera of the station it belongs to.
  */
-export const balanceLines = (lines: string[], maxLines = 2): string[] => {
-  const cleaned = lines.map((line) => line.trim()).filter(Boolean);
-  if (cleaned.length === 0) {
-    return [""];
-  }
-  if (cleaned.length <= maxLines) {
-    return cleaned;
-  }
-  const words = cleaned.join(" ").split(/\s+/).filter(Boolean);
-  const target = words.join(" ").length / maxLines;
-  const out: string[] = [];
-  let current: string[] = [];
-  let length = 0;
-  for (const word of words) {
-    const next = length + word.length + (current.length > 0 ? 1 : 0);
-    if (
-      current.length > 0 &&
-      out.length < maxLines - 1 &&
-      next > target * 1.08
-    ) {
-      out.push(current.join(" "));
-      current = [word];
-      length = word.length;
-    } else {
-      length = next;
-      current.push(word);
+export const fitLabel = (
+  typeface: Typeface,
+  stations: Station[],
+  position: Vec3,
+  text: string,
+  size: number,
+  letterSpacing = 0.04,
+): FitResult => {
+  let nearest = stations[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const station of stations) {
+    const d = Math.hypot(
+      position[0] - station.camera[0],
+      position[1] - station.camera[1],
+      position[2] - station.camera[2],
+    );
+    if (d < nearestDistance) {
+      nearestDistance = d;
+      nearest = station;
     }
   }
-  if (current.length > 0) {
-    out.push(current.join(" "));
-  }
-  return out.slice(0, maxLines);
+  const fov = narrowestFov(nearest);
+  const depth = cameraDepth(nearest.camera, nearest.look, position);
+  return fitAt(typeface, [text], size, letterSpacing, depth, fov);
 };

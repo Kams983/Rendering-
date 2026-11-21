@@ -1,46 +1,7 @@
-import React, { useEffect, useMemo } from "react";
-import * as THREE from "three";
+import React from "react";
 import { ContactShadows, Grid, MeshReflectorMaterial } from "@react-three/drei";
 import { COLORS, type QualitySettings } from "../config";
 import { STATIONS } from "./timeline";
-
-/**
- * Cheap stand-in for a real reflection: one vertical gradient over the floor.
- * No render target, no second scene camera — a few hundred bytes of texture.
- */
-const FakeGradient: React.FC = () => {
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 2;
-    canvas.height = 256;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const gradient = ctx.createLinearGradient(0, 0, 0, 256);
-      gradient.addColorStop(0, "rgba(88,166,255,0.26)");
-      gradient.addColorStop(0.5, "rgba(88,166,255,0.04)");
-      gradient.addColorStop(1, "rgba(255,59,59,0.14)");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 2, 256);
-    }
-    const map = new THREE.CanvasTexture(canvas);
-    map.colorSpace = THREE.SRGBColorSpace;
-    return map;
-  }, []);
-
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, -26]}>
-      <planeGeometry args={[36, 120]} />
-      <meshBasicMaterial
-        map={texture}
-        transparent
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
-  );
-};
 
 /**
  * The corridor floor is one reflective plane running the length of the code
@@ -68,13 +29,11 @@ export const Floor: React.FC<{ settings: QualitySettings }> = ({ settings }) => 
         ) : (
           <meshStandardMaterial
             color="#05070a"
-            metalness={0.62}
-            roughness={0.34}
+            metalness={0.45}
+            roughness={0.85}
           />
         )}
       </mesh>
-
-      {settings.reflector ? null : <FakeGradient />}
 
       <Grid
         args={[36, 120]}

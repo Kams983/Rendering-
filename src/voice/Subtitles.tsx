@@ -1,29 +1,45 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FONT } from "../config";
-import { activeClipAt } from "./voiceCues";
+import { COLORS, FONT, rf } from "../config";
+import { STATIONS } from "../scene/timeline";
+import { buildWordTimings, VOICE_CLIPS } from "./voiceCues";
 
 const WORDS_PER_LINE = 7;
+/** Subtitles follow the same fixed windows as the captions. */
+const LEAD = rf(10);
 
 /**
  * Small word-level subtitles. Independent of QUALITY, controlled by
- * SHOW_SUBTITLES in config.ts. Word timings are the measured ones from the
- * voice manifest, so the highlight follows the actual clip.
+ * SHOW_SUBTITLES in config.ts. Timing comes from the scene window only, never
+ * from the measured length of the audio file.
  */
 export const Subtitles: React.FC = () => {
   const frame = useCurrentFrame();
-  const clip = activeClipAt(frame);
-
-  if (!clip || clip.words.length === 0) {
+  const station = STATIONS.find((item) => frame >= item.start && frame < item.end);
+  if (!station) {
     return null;
   }
 
-  const timings = clip.words;
+  const clip = VOICE_CLIPS[station.index];
+  if (!clip) {
+    return null;
+  }
+
+  const start = station.start + LEAD;
+  const end = station.end;
+  if (frame < start) {
+    return null;
+  }
+
+  const length = Math.max(1, end - start);
+  const local = Math.min(frame - start, length - 1);
+  const timings = buildWordTimings(clip, length);
+
   let activeIndex = timings.findIndex(
-    (timing) => frame >= timing.startFrame && frame < timing.endFrame,
+    (timing) => local >= timing.start && local < timing.end,
   );
   if (activeIndex < 0) {
-    activeIndex = frame >= clip.speechEndFrame ? timings.length - 1 : 0;
+    activeIndex = timings.length - 1;
   }
 
   const lineStart = Math.floor(activeIndex / WORDS_PER_LINE) * WORDS_PER_LINE;
@@ -38,7 +54,7 @@ export const Subtitles: React.FC = () => {
         bottom: 148,
         display: "flex",
         justifyContent: "center",
-        padding: "0 60px",
+        padding: "0 96px",
         pointerEvents: "none",
       }}
     >
@@ -48,7 +64,7 @@ export const Subtitles: React.FC = () => {
           flexWrap: "wrap",
           justifyContent: "center",
           gap: "0 12px",
-          maxWidth: 960,
+          maxWidth: 900,
           fontFamily: FONT.display,
           fontSize: 34,
           lineHeight: 1.25,

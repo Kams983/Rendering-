@@ -3,10 +3,8 @@ import * as THREE from "three";
 import { AbsoluteFill, cancelRender, continueRender, delayRender, staticFile, useCurrentFrame } from "remotion";
 import { CameraMotionBlur } from "@remotion/motion-blur";
 import { ThreeCanvas } from "@remotion/three";
-import { FontLoader } from "three-stdlib";
 import { ASSETS, COLORS, QUALITY_SETTINGS, VIDEO, type Quality } from "../config";
 import { impactAt } from "../sfx/useSfxImpact";
-import { clamp } from "../utils/math";
 import { Caption3D } from "./Caption3D";
 import { CameraRig } from "./CameraRig";
 import { CubeSwarm } from "./CubeSwarm";
@@ -17,29 +15,11 @@ import { Post } from "./Post";
 import { StationProps } from "./Props";
 import { ScreenTear } from "./ScreenTear";
 import { STATIONS } from "./timeline";
+import { loadTypeface } from "./typeface";
 
 THREE.Cache.enabled = true;
 
-let fontPromise: Promise<void> | null = null;
-
-const preloadFont = (): Promise<void> => {
-  if (!fontPromise) {
-    fontPromise = new Promise((resolve, reject) => {
-      new FontLoader().load(
-        staticFile(ASSETS.font3d),
-        () => resolve(),
-        undefined,
-        () =>
-          reject(
-            new Error(
-              `Missing 3D typeface: public/${ASSETS.font3d}. Text3D captions cannot render without it.`,
-            ),
-          ),
-      );
-    });
-  }
-  return fontPromise;
-};
+const preloadFont = (): Promise<unknown> => loadTypeface(staticFile(ASSETS.font3d));
 
 /** Holds the render until the typeface is decoded so frame 0 has captions. */
 const TypefaceGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -80,7 +60,7 @@ const SceneContent: React.FC<SceneProps> = ({
   energy,
 }) => {
   const frame = useCurrentFrame();
-  const liveImpact = clamp(impact || impactAt(frame), 0, 1);
+  const liveImpact = impact || impactAt(frame);
 
   return (
     <>

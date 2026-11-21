@@ -9,7 +9,8 @@ import { Timer } from "./Timer";
 import { Magnifier } from "./Magnifier";
 import { Checkmark } from "./Checkmark";
 import { STATIONS, type Vec3 } from "./timeline";
-import { HELP_LABELS } from "./helpLabels";
+import { fitLabel } from "./captionFit";
+import { getTypeface } from "./typeface";
 
 type Label3DProps = {
   text: string;
@@ -25,12 +26,18 @@ const Label3D: React.FC<Label3DProps> = ({
   size = 0.16,
   color = COLORS.cyan,
   rotationY = 0,
-}) => (
+}) => {
+  // Same width fitting as the hero captions.
+  const typeface = getTypeface();
+  const fit = typeface ? fitLabel(typeface, STATIONS, position, text, size) : null;
+  const fittedSize = size * (fit ? fit.scale : 1);
+
+  return (
   <group position={position} rotation={[0, rotationY, 0]}>
     <Center>
       <Text3D
         font={staticFile(ASSETS.font3d)}
-        size={size}
+        size={fittedSize}
         height={0.014}
         bevelEnabled
         bevelThickness={0.004}
@@ -51,7 +58,8 @@ const Label3D: React.FC<Label3DProps> = ({
       </Text3D>
     </Center>
   </group>
-);
+  );
+};
 
 const Desk: React.FC = () => (
   <group>
@@ -193,7 +201,11 @@ const HelpBeacon: React.FC<{ frame: number }> = ({ frame }) => {
   const spin = frame * 0.02;
   return (
     <group>
-      {HELP_LABELS.map((label) => (
+      {[
+        { text: "ASK", position: [-1.85, 1.82, -39.4] as Vec3, size: 0.18 },
+        { text: "SEARCH", position: [0, 2.08, -39.25] as Vec3, size: 0.2 },
+        { text: "LEARN", position: [1.85, 1.82, -39.4] as Vec3, size: 0.18 },
+      ].map((label) => (
         <Label3D
           key={label.text}
           text={label.text}

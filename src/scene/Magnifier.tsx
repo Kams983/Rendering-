@@ -1,7 +1,6 @@
 import React from "react";
-import * as THREE from "three";
 import { spring, useCurrentFrame } from "remotion";
-import { COLORS, FPS, PACE, frames60 } from "../config";
+import { COLORS, FPS } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 import { clamp01, lerp } from "../utils/math";
 
@@ -18,19 +17,18 @@ export const Magnifier: React.FC = () => {
           frame: age,
           fps: FPS,
           config: { damping: 13, stiffness: 160, mass: 0.7 },
-          durationInFrames: frames60(34),
+          durationInFrames: 34,
         })
       : 0;
 
-  const float = Math.sin(frame * 0.03 * PACE) * 0.05;
-  const scan = Math.sin(frame * 0.075 * PACE) * 0.62;
-  const pulse =
-    0.45 + 0.55 * clamp01(Math.abs(Math.sin(frame * 0.05 * PACE)));
+  const float = Math.sin(frame * 0.03) * 0.05;
+  const scan = Math.sin(frame * 0.075) * 0.62;
+  const pulse = 0.45 + 0.55 * clamp01(Math.abs(Math.sin(frame * 0.05)));
 
   return (
     <group
       position={[0, 1.5 + float, -30.9]}
-      rotation={[0.1 * (1 - entered), Math.sin(frame * 0.02 * PACE) * 0.14, 0]}
+      rotation={[0.1 * (1 - entered), Math.sin(frame * 0.02) * 0.14, 0]}
       scale={Math.max(0.0001, entered)}
     >
       <mesh>
@@ -52,13 +50,16 @@ export const Magnifier: React.FC = () => {
 
       <mesh>
         <circleGeometry args={[0.72, 64]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color="#9fd2ff"
           transparent
           opacity={0.18}
           roughness={0.04}
           metalness={0}
-          side={THREE.DoubleSide}
+          transmission={0.92}
+          thickness={0.12}
+          ior={1.4}
+          side={2}
         />
       </mesh>
 

@@ -118,9 +118,6 @@ jobs:
       - name: Download Chrome for Remotion
         run: npx remotion browser ensure
 
-      - name: Measure and fit voice-over
-        run: npm run voice:prepare
-
       - name: Render part
         shell: bash
         env:
@@ -188,9 +185,6 @@ jobs:
 
       - name: Download Chrome for Remotion
         run: npx remotion browser ensure
-
-      - name: Measure and fit voice-over
-        run: npm run voice:prepare
 
       - name: Download parts
         uses: actions/download-artifact@v4

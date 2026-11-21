@@ -1,59 +1,64 @@
-import React, { PropsWithChildren, useEffect, useState } from "react";
-import {
-  cancelRender,
-  continueRender,
-  delayRender,
-  staticFile,
-} from "remotion";
+import React, {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { cancelRender, continueRender, delayRender, staticFile } from "remotion";
 import { getAudioDurationInSeconds } from "@remotion/media-utils";
-import { VOICE_CLIPS } from "./voiceCues";
+import { FPS } from "../config";
+import { BAKED_VOICE_DURATION_FRAMES, VOICE_CLIPS } from "./voiceCues";
 
-/**
- * Holds the render until every measured voice file is readable. The durations
- * themselves are not measured here: they come from the build-time manifest
- * (npm run voice:prepare), so frame 0 already has correct timings.
- */
-let verifyPromise: Promise<void> | null = null;
+const VoiceDurationsContext = createContext<Record<string, number>>(
+  BAKED_VOICE_DURATION_FRAMES,
+);
 
-const verifyVoiceFiles = (): Promise<void> => {
-  if (!verifyPromise) {
-    verifyPromise = Promise.all(
+let durationPromise: Promise<Record<string, number>> | null = null;
+
+const loadVoiceDurations = (): Promise<Record<string, number>> => {
+  if (!durationPromise) {
+    durationPromise = Promise.all(
       VOICE_CLIPS.map(async (clip) => {
         try {
-          await getAudioDurationInSeconds(staticFile(clip.file));
+          const seconds = await getAudioDurationInSeconds(
+            staticFile(`voice/${clip.file}`),
+          );
+          return [clip.id, Math.max(1, Math.round(seconds * FPS))] as const;
         } catch {
           throw new Error(
-            `[voice] Missing or unreadable voice clip: public/${clip.file}. ` +
-              `Run \`npm run voice:prepare\` to measure and fit all eight VO clips.`,
+            `[voice] Missing or unreadable voice clip: public/voice/${clip.file}. ` +
+              `All eight VO clips must exist before rendering.`,
           );
         }
       }),
     )
-      .then(() => undefined)
+      .then((entries) => Object.fromEntries(entries))
       .catch((error) => {
-        verifyPromise = null;
+        durationPromise = null;
         throw error;
       });
   }
-  return verifyPromise;
+  return durationPromise;
 };
 
-export const VoiceTimingProvider: React.FC<PropsWithChildren> = ({
-  children,
-}) => {
-  const [handle] = useState(() => delayRender("Checking voice-over clips"));
-  const [ready, setReady] = useState(false);
+export const VoiceTimingProvider: React.FC<PropsWithChildren> = ({ children }) => {
+  const [handle] = useState(() => delayRender("Loading voice-over durations"));
+  const [durations, setDurations] = useState<Record<string, number>>(
+    BAKED_VOICE_DURATION_FRAMES,
+  );
 
   useEffect(() => {
     let alive = true;
-    verifyVoiceFiles()
-      .then(() => {
+    loadVoiceDurations()
+      .then((loaded) => {
         if (alive) {
-          setReady(true);
+          setDurations(loaded);
         }
         continueRender(handle);
       })
       .catch((error: Error) => {
+        // Fail the render with a message that names the missing file.
         cancelRender(error);
       });
     return () => {
@@ -61,5 +66,12 @@ export const VoiceTimingProvider: React.FC<PropsWithChildren> = ({
     };
   }, [handle]);
 
-  return ready ? <>{children}</> : null;
+  return (
+    <VoiceDurationsContext.Provider value={durations}>
+      {children}
+    </VoiceDurationsContext.Provider>
+  );
 };
+
+export const useVoiceDurations = (): Record<string, number> =>
+  useContext(VoiceDurationsContext);

@@ -1,10 +1,9 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FONT, VIDEO, SHOW_SUBTITLES, frames60 } from "../config";
+import { COLORS, FONT, VIDEO, SHOW_SUBTITLES } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 import { errorPulseAt, impactAt } from "../sfx/useSfxImpact";
 import { stationForFrame, STATIONS } from "../scene/timeline";
-import { safe } from "../utils/math";
 
 const pad = (value: number, size = 2): string =>
   String(Math.max(0, Math.floor(value))).padStart(size, "0");
@@ -18,8 +17,8 @@ const timecode = (frame: number): string => {
 export const HUD: React.FC = () => {
   const frame = useCurrentFrame();
   const station = stationForFrame(frame);
-  const error = safe(errorPulseAt(frame), 0, 0, 1);
-  const impact = safe(impactAt(frame), 0, 0, 1);
+  const error = errorPulseAt(frame);
+  const impact = impactAt(frame);
 
   const blackout = Math.min(
     1,
@@ -29,7 +28,7 @@ export const HUD: React.FC = () => {
         Math.max(1, VIDEO.durationInFrames - CUE_FRAMES.blackout),
     ),
   );
-  const blink = frame % frames60(70) < frames60(38);
+  const blink = frame % 70 < 38;
 
   return (
     <div
@@ -107,7 +106,7 @@ export const HUD: React.FC = () => {
               color: "rgba(139,148,158,0.7)",
             }}
           >
-            {`TAKE 005 / ${VIDEO.fps} FPS`}
+            TAKE 005 / {VIDEO.fps} FPS
           </div>
         </div>
       </div>
@@ -190,9 +189,8 @@ export const HUD: React.FC = () => {
           color: "rgba(139,148,158,0.55)",
         }}
       >
-        {`${VIDEO.width} × ${VIDEO.height} · ${VIDEO.fps} FPS · ${(
-          VIDEO.durationInFrames / VIDEO.fps
-        ).toFixed(1)} S`}
+        {VIDEO.width} × {VIDEO.height} · {VIDEO.fps} FPS ·{" "}
+        {(VIDEO.durationInFrames / VIDEO.fps).toFixed(1)} S
       </div>
 
       {/* Scanlines */}
@@ -221,7 +219,7 @@ export const HUD: React.FC = () => {
           position: "absolute",
           inset: 0,
           background: "rgba(255,255,255,0.055)",
-          opacity: safe(Math.min(0.75, impact * 0.55), 0, 0, 0.75),
+          opacity: Math.min(0.75, impact * 0.55),
         }}
       />
 

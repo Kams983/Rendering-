@@ -1,13 +1,13 @@
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FPS, PACE, frames60 } from "../config";
+import { COLORS, FPS } from "../config";
 import { CUES } from "../sfx/cues";
 import { clamp01 } from "../utils/math";
 import { itemRandom, mulberry32 } from "../utils/seeded";
 import { stationForFrame } from "./timeline";
 
-const LIFE = frames60(56);
+const LIFE = 56;
 
 type Burst = {
   frame: number;
@@ -159,15 +159,11 @@ const Dust: React.FC<{
     }
     items.forEach((item, index) => {
       dummy.position.set(
-        item.x + Math.sin(frame * 0.012 * PACE * item.speed + item.phase) * 0.5,
-        item.y + Math.sin(frame * 0.009 * PACE + item.phase) * 0.35,
+        item.x + Math.sin(frame * 0.012 * item.speed + item.phase) * 0.5,
+        item.y + Math.sin(frame * 0.009 + item.phase) * 0.35,
         item.z,
       );
-      dummy.rotation.set(
-        frame * 0.01 * PACE,
-        frame * 0.013 * PACE,
-        item.phase,
-      );
+      dummy.rotation.set(frame * 0.01, frame * 0.013, item.phase);
       dummy.scale.setScalar(item.size);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
