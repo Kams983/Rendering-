@@ -1,74 +1,156 @@
-name: Render Coding Mistakes
+name: Render video
 
 on:
   workflow_dispatch:
     inputs:
-      quality:
-        description: "preview = 540x960 fast check; final = 1620x2880 hero quality"
+      scale:
+        description: "Output scale (1 = 1080x1920, 0.5 = half size)"
         required: true
-        default: preview
-        type: choice
-        options:
-          - preview
-          - final
-  push:
-    branches:
-      - main
+        default: "1"
+        type: string
 
 concurrency:
   group: render-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  PART_FRAMES: 235
+  LAST_FRAME: 2819
+
 jobs:
-  render:
+  parts:
+    name: part-${{ matrix.part }}
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node 24
+      - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
+
+      - name: Install ffmpeg and Chromium libraries
+        # 24.04 ships the t64 variants of a few of these; install whichever
+        # name exists so the step does not fail on a missing package.
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          wanted="ffmpeg libnss3 libdbus-1-3 libatk1.0-0 libatk1.0-0t64 libasound2 libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libgbm-dev libcups2 libcups2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64"
+          install=""
+          for pkg in $wanted; do
+            if apt-cache show "$pkg" >/dev/null 2>&1; then
+              install="$install $pkg"
+            fi
+          done
+          echo "Installing:$install"
+          sudo apt-get install -y --no-install-recommends $install
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Measure and fit voice-over
+        run: npm run voice:prepare
 
-      - name: Synthesise SFX and music
-        run: npm run gen-audio
-
-      - name: Render video
-        env:
-          # Pushes render the fast preview; use "Run workflow" for final.
-          QUALITY: ${{ inputs.quality || 'preview' }}
+      - name: Render part
         run: |
           set -euo pipefail
-          mkdir -p out
-          if [ "$QUALITY" = "final" ]; then
-            echo "Rendering FINAL (1620x2880, hero quality) — this is slow."
-            npx remotion render src/index.ts CodingMistakes3D out/render.mp4 \
-              --gl=swangle \
-              --concurrency=1 \
-              --scale=1.5 \
-              --crf=16 \
-              --props=props/final.json
-          else
-            echo "Rendering PREVIEW (540x960)."
-            npx remotion render src/index.ts CodingMistakes3D out/render.mp4 \
-              --gl=swangle \
-              --concurrency=2 \
-              --scale=0.5 \
-              --props=props/preview.json
+          START=$(( ${{ matrix.part }} * PART_FRAMES ))
+          END=$(( START + PART_FRAMES - 1 ))
+          if [ "$END" -gt "$LAST_FRAME" ]; then
+            END=$LAST_FRAME
           fi
+          echo "part ${{ matrix.part }}: frames $START-$END"
+          mkdir -p out
+          npx remotion render src/index.ts CodingMistakes3D "out/part-${{ matrix.part }}.mp4" \
+            --gl=swangle \
+            --concurrency=2 \
+            --scale=${{ inputs.scale }} \
+            --crf=18 \
+            --muted \
+            --frames=$START-$END \
+            --props=props/final.json
 
-      - name: Upload rendered video
+      - name: Upload part
         uses: actions/upload-artifact@v4
         with:
-          name: coding-mistakes-${{ inputs.quality || 'preview' }}
-          path: out/render.mp4
+          name: part-${{ matrix.part }}
+          path: out/part-${{ matrix.part }}.mp4
+          if-no-files-found: error
+
+  merge:
+    name: merge
+    needs: parts
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install ffmpeg and Chromium libraries
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          wanted="ffmpeg libnss3 libdbus-1-3 libatk1.0-0 libatk1.0-0t64 libasound2 libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 libxcomposite1 libxdamage1 libgbm-dev libcups2 libcups2t64 libatk-bridge2.0-0 libatk-bridge2.0-0t64"
+          install=""
+          for pkg in $wanted; do
+            if apt-cache show "$pkg" >/dev/null 2>&1; then
+              install="$install $pkg"
+            fi
+          done
+          echo "Installing:$install"
+          sudo apt-get install -y --no-install-recommends $install
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Measure and fit voice-over
+        run: npm run voice:prepare
+
+      - name: Download parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          merge-multiple: true
+          path: out
+
+      - name: Render audio
+        run: |
+          set -euo pipefail
+          npx remotion render src/index.ts CodingMistakes3D out/audio.aac \
+            --codec=aac \
+            --gl=swangle \
+            --props=props/final.json
+
+      - name: Concat parts and mux audio
+        run: |
+          set -euo pipefail
+          : > out/list.txt
+          for i in $(seq 0 11); do
+            test -f "out/part-$i.mp4" || { echo "missing out/part-$i.mp4"; exit 1; }
+            echo "file 'part-$i.mp4'" >> out/list.txt
+          done
+          cat out/list.txt
+          ffmpeg -y -f concat -safe 0 -i out/list.txt -c copy out/video-only.mp4
+          ffmpeg -y -i out/video-only.mp4 -i out/audio.aac \
+            -c:v copy -c:a aac -b:a 192k -shortest out/final.mp4
+          ffprobe -hide_banner -show_entries format=duration,size -of default=noprint_wrappers=1 out/final.mp4
+
+      - name: Upload final video
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-video
+          path: out/final.mp4
           if-no-files-found: error

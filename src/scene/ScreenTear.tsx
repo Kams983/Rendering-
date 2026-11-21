@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useCurrentFrame } from "remotion";
+import { safe } from "../utils/math";
 
 const vertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -64,7 +65,7 @@ export const ScreenTear: React.FC<{ intensity: number }> = ({ intensity }) => {
   const width = height * (size.width / Math.max(1, size.height));
 
   useLayoutEffect(() => {
-    uniforms.uIntensity.value = intensity;
+    uniforms.uIntensity.value = safe(intensity, 0, 0, 0.35);
     uniforms.uTime.value = frame / 60;
     const object = mesh.current;
     if (!object) {
@@ -74,7 +75,7 @@ export const ScreenTear: React.FC<{ intensity: number }> = ({ intensity }) => {
     camera.getWorldDirection(direction);
     object.position.copy(camera.position).addScaledVector(direction, 0.55);
     object.quaternion.copy(camera.quaternion);
-    object.visible = intensity > 0.01;
+    object.visible = uniforms.uIntensity.value > 0.01;
   }, [camera, frame, intensity, uniforms]);
 
   return (

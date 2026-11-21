@@ -13,7 +13,9 @@ number only: no clocks, no `Math.random`, no real-time physics.
 ```bash
 npm install
 npm run typecheck
-npm run dev          # Remotion Studio
+npm run voice:prepare   # measure the VO clips (ffmpeg) -> src/voice/voiceManifest.ts
+npm run check           # offline black-frame + caption fit checks (no rendering)
+npm run dev             # Remotion Studio
 ```
 
 The previous project's files are preserved in `archive/previous-project/`.
@@ -68,8 +70,21 @@ Cue frames are written at a 30 fps reference and multiplied by `S = FPS / 30`.
 `src/scene/timeline.ts` are the only files that hold reference frames.
 Changing `FPS` rescales every cue.
 
-Caption slams land on the cue frames in `SLAM_FRAMES`: 60 (3 HOURS), 130
-(READ THE ERROR), 360, 600, 840, 1080, 1115 and 1395.
+Caption slam frames are not authored. `scripts/prepare-voice.ts` measures each
+clip with ffmpeg (length, leading/trailing silence), resolves each line's
+**anchor phrase** from `src/voice/script.ts` and writes the measured word
+timings to `src/voice/voiceManifest.ts`. An anchor is a phrase plus the index
+of the word inside it and an optional `occurrence: "last"`, so "error" lands on
+"Ignoring the error", never on "Every error". `SLAM_FRAMES` reads that manifest,
+so a caption lands on its anchored word (delta 0 frames, never before the voice
+reaches it) and subtitles use the same timings. A slam outside its scene window
+fails the build.
+
+Each clip starts at `sceneStart - leadingSilence`, so the first word lands on
+the scene's first frame. A clip longer than its window minus 0.3 s is sped up
+with `atempo`, capped at 1.15x; anything still too long is reported with the
+seconds over. `voice:prepare` prints the gap to the next clip and fails on
+anything below 0.3 s, including a clip that runs into the next scene.
 
 ## Sound
 
@@ -89,6 +104,26 @@ Mix: voice 1.0; SFX 0.35–0.6 ducked to ×0.35 while narration plays; ambient
 hum and music at 0.15, ducked by −6 dB. SFX files that are missing at render
 time log a warning and are skipped; a missing VO clip fails the render with
 its filename.
+
+## Checks (no rendering)
+
+```bash
+npm run check           # both of the below
+npm run check:safety    # every frame value that feeds the camera + post chain
+npm run check:captions  # Text3D bounding boxes vs the visible frustum width
+```
+
+`check:safety` sweeps all 2820 frames (x3 energy states) through
+`cameraMath.cameraStateAt` and `scene/postParams.postParamsAt` — the same pure
+functions the scene renders from — and fails on NaN, Infinity, negatives, or a
+zero DOF focus distance / N8AO radius. `check:captions` builds the real
+Helvetiker Text3D geometry in Node, applies `scene/captionFit` and checks every
+caption at the normal FOV and at the punch-in FOV against 88% of
+`2 * distance * tan(fov / 2) * aspect` (the 60 px side margins).
+
+After a still or sequence render, `npm run check:black -- out/stills` scans the
+PNGs for mean luminance < 4 and prints the frame numbers. Frames from the
+intentional end blackout (frame 2808 onward) are expected to be black.
 
 ## Render commands
 

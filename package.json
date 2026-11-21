@@ -7,8 +7,16 @@
     "dev": "remotion studio src/index.ts",
     "typecheck": "tsc --noEmit",
     "gen-audio": "node scripts/generate-audio.ts",
-    "render:preview": "npm run gen-audio && remotion render src/index.ts CodingMistakes3D out/preview.mp4 --gl=angle --concurrency=2 --scale=0.5 --props=props/preview.json",
-    "render:final": "npm run gen-audio && remotion render src/index.ts CodingMistakes3D out/final.mp4 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json",
+    "voice:prepare": "esbuild scripts/prepare-voice.ts --bundle --platform=node --format=cjs --outfile=out/checks/prepare-voice.cjs --log-level=warning && node out/checks/prepare-voice.cjs",
+    "voice:prepare:report": "esbuild scripts/prepare-voice.ts --bundle --platform=node --format=cjs --outfile=out/checks/prepare-voice.cjs --log-level=warning && node out/checks/prepare-voice.cjs --allow-overflow",
+    "check:black": "node scripts/check-black-frames.ts",
+    "check:safety": "esbuild scripts/check-frame-safety.ts --bundle --platform=node --format=cjs --outfile=out/checks/frame-safety.cjs --external:three --external:remotion --external:react --external:react-dom --external:@remotion/noise --external:three-stdlib --log-level=warning && node out/checks/frame-safety.cjs",
+    "check:captions": "esbuild scripts/check-caption-fit.ts --bundle --platform=node --format=cjs --outfile=out/checks/caption-fit.cjs --external:three --external:three-stdlib --log-level=warning && node out/checks/caption-fit.cjs",
+    "check": "npm run check:safety && npm run check:captions",
+    "stills:frames": "node scripts/still-frames.ts",
+    "verify:stills": "bash scripts/verify-stills.sh",
+    "render:preview": "npm run gen-audio && npm run voice:prepare && remotion render src/index.ts CodingMistakes3D out/preview.mp4 --gl=angle --concurrency=2 --scale=0.5 --props=props/preview.json",
+    "render:final": "npm run gen-audio && npm run voice:prepare && remotion render src/index.ts CodingMistakes3D out/final.mp4 --gl=angle --concurrency=1 --scale=1.5 --crf=16 --props=props/final.json",
     "render:segments": "bash scripts/render-segments.sh"
   },
   "dependencies": {

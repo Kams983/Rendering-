@@ -3,7 +3,6 @@ import { staticFile } from "remotion";
 import { useAudioData, visualizeAudio } from "@remotion/media-utils";
 import { FPS } from "../config";
 import { clamp01 } from "../utils/math";
-import { useVoiceDurations } from "./VoiceTiming";
 import { activeClipAt, VOICE_CLIPS } from "./voiceCues";
 
 /**
@@ -12,12 +11,11 @@ import { activeClipAt, VOICE_CLIPS } from "./voiceCues";
  */
 export const useVoiceEnergy = (): number => {
   const frame = useCurrentFrame();
-  const durations = useVoiceDurations();
   const audio = VOICE_CLIPS.map((clip) =>
-    useAudioData(staticFile(`voice/${clip.file}`)),
+    useAudioData(staticFile(clip.file)),
   );
 
-  const active = activeClipAt(frame, durations);
+  const active = activeClipAt(frame);
   if (!active) {
     return 0;
   }
@@ -28,7 +26,9 @@ export const useVoiceEnergy = (): number => {
     return 0;
   }
 
-  const localFrame = Math.round(frame - active.startFrame);
+  // Map composition frames onto the audio file (which may start earlier than
+  // its speech, to swallow the leading silence).
+  const localFrame = Math.round(frame - active.audioStartFrame);
   if (localFrame < 0) {
     return 0;
   }

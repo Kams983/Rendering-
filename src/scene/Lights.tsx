@@ -1,6 +1,7 @@
 import React from "react";
 import { Environment, Lightformer, SpotLight } from "@react-three/drei";
 import { COLORS, type QualitySettings } from "../config";
+import { safe } from "../utils/math";
 
 type LightsProps = {
   settings: QualitySettings;
@@ -42,28 +43,28 @@ export const Lights: React.FC<LightsProps> = ({
       <pointLight
         position={[0, 3.4, 4.4]}
         color={COLORS.cyan}
-        intensity={18 + impact * 55 + energy * 16}
+        intensity={safe(18 + impact * 55 + energy * 16, 18, 0, 400)}
         distance={26}
         decay={2}
       />
       <pointLight
         position={[1.5, 3.2, -20]}
         color={COLORS.red}
-        intensity={8 + error * 65}
+        intensity={safe(8 + error * 65, 8, 0, 400)}
         distance={22}
         decay={2}
       />
       <pointLight
         position={[-1.5, 3.4, -44]}
         color={COLORS.green}
-        intensity={10 + energy * 22}
+        intensity={safe(10 + energy * 22, 10, 0, 400)}
         distance={26}
         decay={2}
       />
       <pointLight
         position={[0, 4.8, -9]}
         color={COLORS.cyan}
-        intensity={6 + impact * 18}
+        intensity={safe(6 + impact * 18, 6, 0, 400)}
         distance={18}
         decay={2}
       />

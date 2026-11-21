@@ -6,6 +6,7 @@ import { ThreeCanvas } from "@remotion/three";
 import { FontLoader } from "three-stdlib";
 import { ASSETS, COLORS, QUALITY_SETTINGS, VIDEO, type Quality } from "../config";
 import { impactAt } from "../sfx/useSfxImpact";
+import { clamp } from "../utils/math";
 import { Caption3D } from "./Caption3D";
 import { CameraRig } from "./CameraRig";
 import { CubeSwarm } from "./CubeSwarm";
@@ -79,7 +80,7 @@ const SceneContent: React.FC<SceneProps> = ({
   energy,
 }) => {
   const frame = useCurrentFrame();
-  const liveImpact = impact || impactAt(frame);
+  const liveImpact = clamp(impact || impactAt(frame), 0, 1);
 
   return (
     <>

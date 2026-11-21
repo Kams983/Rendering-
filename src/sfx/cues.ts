@@ -5,6 +5,7 @@
  * Nothing outside this file (and the scene timeline) contains a raw cue frame.
  */
 import { rf, rfDuration } from "../config";
+import { SLAM_FRAME } from "../voice/timing";
 
 export type ImpactTrigger = "impact" | "error" | "slam" | "bass";
 
@@ -25,16 +26,20 @@ export type SfxCue = {
 
 const at = (referenceFrame: number): number => rf(referenceFrame);
 
-/** Caption slam frames, shared by the 3D captions and the timing of each scene. */
+/**
+ * Caption slam frames. These are not authored: each one is the measured spoken
+ * keyword of its clip (scripts/prepare-voice.ts), so a slam can never land
+ * before the voice reaches the word it belongs to.
+ */
 export const SLAM_FRAMES = {
-  hook: at(60),
-  m1: at(130),
-  m2: at(360),
-  m3: at(600),
-  m4: at(840),
-  m5: at(1080),
-  payoff: at(1115),
-  end: at(1395),
+  hook: SLAM_FRAME.hook,
+  m1: SLAM_FRAME.m1,
+  m2: SLAM_FRAME.m2,
+  m3: SLAM_FRAME.m3,
+  m4: SLAM_FRAME.m4,
+  m5: SLAM_FRAME.m5,
+  payoff: SLAM_FRAME.payoff,
+  end: SLAM_FRAME.end,
 } as const;
 
 export const CUE_FRAMES = {
@@ -78,10 +83,10 @@ export const CUES: SfxCue[] = [
   // ---------------------------------------------------------------- hook
   { id: "kb-burst", frame: at(0), file: "keyboard-burst.wav", volume: 0.5, trigger: "impact", weight: 0.4 },
   { id: "beep-1", frame: at(45), file: "error-beep.wav", volume: 0.5, trigger: "error", weight: 0.5 },
-  { id: "bass-1", frame: at(60), file: "bass-hit.wav", volume: 0.6, trigger: "impact", weight: 0.9 },
+  { id: "bass-1", frame: SLAM_FRAMES.hook, file: "bass-hit.wav", volume: 0.6, trigger: "impact", weight: 0.9 },
   {
     id: "timer-roll",
-    frame: at(60),
+    frame: SLAM_FRAMES.hook,
     file: "timer-tick-roll.wav",
     volume: 0.4,
     durationInFrames: rfDuration(30),
@@ -90,7 +95,7 @@ export const CUES: SfxCue[] = [
   },
   { id: "beep-2", frame: at(95), file: "error-beep.wav", volume: 0.6, trigger: "error", weight: 0.75 },
   { id: "scratch", frame: at(130), file: "record-scratch.wav", volume: 0.5, trigger: "impact", weight: 0.55 },
-  { id: "slam-1", frame: at(130), file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
+  { id: "slam-1", frame: SLAM_FRAMES.m1, file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
 
   // ----------------------------------------------------------- mistake 01
   {
@@ -104,12 +109,12 @@ export const CUES: SfxCue[] = [
 
   // ----------------------------------------------------------- mistake 02
   { id: "glass-1", frame: at(360), file: "glass-crack.wav", volume: 0.5, trigger: "impact", weight: 0.6 },
-  { id: "slam-2", frame: at(360), file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
+  { id: "slam-2", frame: SLAM_FRAMES.m2, file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
   { id: "click", frame: at(455), file: "mouse-click.wav", volume: 0.4 },
   { id: "paste", frame: at(470), file: "paste-thud.wav", volume: 0.45, trigger: "impact", weight: 0.4 },
   { id: "run", frame: at(485), file: "run-whoosh.wav", volume: 0.45 },
   { id: "boom-1", frame: at(520), file: "error-boom.wav", volume: 0.6, trigger: "impact", weight: 0.8 },
-  { id: "slam-3", frame: at(600), file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
+  { id: "slam-3", frame: SLAM_FRAMES.m3, file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
 
   // ----------------------------------------------------------- mistake 03
   { id: "zoom-1", frame: at(665), file: "whoosh-zoom.wav", volume: 0.4 },
@@ -117,7 +122,7 @@ export const CUES: SfxCue[] = [
   { id: "zoom-3", frame: at(710), file: "whoosh-zoom.wav", volume: 0.42 },
   { id: "ding", frame: at(760), file: "reveal-ding.wav", volume: 0.5, trigger: "impact", weight: 0.5 },
   { id: "pop", frame: at(765), file: "pop.wav", volume: 0.4 },
-  { id: "slam-4", frame: at(840), file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
+  { id: "slam-4", frame: SLAM_FRAMES.m4, file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
 
   // ----------------------------------------------------------- mistake 04
   {
@@ -130,7 +135,7 @@ export const CUES: SfxCue[] = [
   { id: "search-type", frame: at(1000), file: "search-type.wav", volume: 0.35 },
   { id: "ui-whoosh", frame: at(1000), file: "ui-whoosh.wav", volume: 0.4 },
   { id: "chime", frame: at(1000), file: "notification-chime.wav", volume: 0.5, trigger: "impact", weight: 0.4 },
-  { id: "slam-5", frame: at(1080), file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
+  { id: "slam-5", frame: SLAM_FRAMES.m5, file: "text-slam.wav", volume: 0.55, trigger: "slam", weight: 1 },
 
   // --------------------------------------------------------------- payoff
   { id: "beep-soft", frame: at(1115), file: "error-beep.wav", volume: 0.35, trigger: "error", weight: 0.35 },

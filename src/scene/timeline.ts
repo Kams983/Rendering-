@@ -215,6 +215,27 @@ export const fovBlendAt = (frame: number): number => {
   return station.fov + (STATIONS[index + 1].fov - station.fov) * t;
 };
 
+/** How far CameraRig pulls the lens toward 40 mm on a slam (0..1 * 0.7). */
+export const PUNCH_STRENGTH = 0.7;
+export const PUNCH_FOV = 40;
+
+/**
+ * Narrowest FOV the caption ever sees: the station blend plus the worst-case
+ * punch-in, sampled across the caption's visible life. Captions are fitted to
+ * this, so a 60 -> 40 punch can never clip them.
+ */
+export const captionFov = (station: Station): number => {
+  const start = station.slamFrame;
+  const end = Math.max(start, station.end);
+  let narrowest = station.fov;
+  for (let frame = start; frame <= end; frame += 4) {
+    const base = fovBlendAt(frame);
+    const punched = base + (PUNCH_FOV - base) * PUNCH_STRENGTH;
+    narrowest = Math.min(narrowest, base, punched);
+  }
+  return Math.max(20, narrowest);
+};
+
 /** Absolute frame at which a station's caption lands. */
 export const slamFrameOf = (station: Station): number => station.slamFrame;
 

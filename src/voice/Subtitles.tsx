@@ -1,33 +1,29 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FONT, FPS } from "../config";
-import { useVoiceDurations } from "./VoiceTiming";
-import { activeClipAt, buildWordTimings } from "./voiceCues";
+import { COLORS, FONT } from "../config";
+import { activeClipAt } from "./voiceCues";
 
 const WORDS_PER_LINE = 7;
 
 /**
  * Small word-level subtitles. Independent of QUALITY, controlled by
- * SHOW_SUBTITLES in config.ts.
+ * SHOW_SUBTITLES in config.ts. Word timings are the measured ones from the
+ * voice manifest, so the highlight follows the actual clip.
  */
 export const Subtitles: React.FC = () => {
   const frame = useCurrentFrame();
-  const durations = useVoiceDurations();
-  const clip = activeClipAt(frame, durations);
+  const clip = activeClipAt(frame);
 
-  if (!clip) {
+  if (!clip || clip.words.length === 0) {
     return null;
   }
 
-  const length = durations[clip.id] ?? Math.round(clip.durationInSeconds * FPS);
-  const local = Math.max(0, frame - clip.startFrame);
-  const timings = buildWordTimings(clip, length);
-
+  const timings = clip.words;
   let activeIndex = timings.findIndex(
-    (timing) => local >= timing.start && local < timing.end,
+    (timing) => frame >= timing.startFrame && frame < timing.endFrame,
   );
   if (activeIndex < 0) {
-    activeIndex = local >= length ? timings.length - 1 : 0;
+    activeIndex = frame >= clip.speechEndFrame ? timings.length - 1 : 0;
   }
 
   const lineStart = Math.floor(activeIndex / WORDS_PER_LINE) * WORDS_PER_LINE;
@@ -42,7 +38,7 @@ export const Subtitles: React.FC = () => {
         bottom: 148,
         display: "flex",
         justifyContent: "center",
-        padding: "0 96px",
+        padding: "0 60px",
         pointerEvents: "none",
       }}
     >
@@ -52,7 +48,7 @@ export const Subtitles: React.FC = () => {
           flexWrap: "wrap",
           justifyContent: "center",
           gap: "0 12px",
-          maxWidth: 900,
+          maxWidth: 960,
           fontFamily: FONT.display,
           fontSize: 34,
           lineHeight: 1.25,

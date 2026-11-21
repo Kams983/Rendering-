@@ -1,7 +1,30 @@
-export const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
+export const clamp = (value: number, min: number, max: number): number => {
+  if (!Number.isFinite(value)) {
+    return Number.isFinite(min) ? min : 0;
+  }
+  return Math.min(max, Math.max(min, value));
+};
 
 export const clamp01 = (value: number): number => clamp(value, 0, 1);
+
+/**
+ * Post-processing and shader uniforms go black (or NaN and vanish) the moment a
+ * single non-finite number reaches them. Everything that feeds bloom, DOF,
+ * chromatic aberration, AO or camera shake goes through this.
+ */
+export const safe = (
+  value: number,
+  fallback: number,
+  min = -Infinity,
+  max = Infinity,
+): number => {
+  if (!Number.isFinite(value)) {
+    return Number.isFinite(fallback) ? fallback : 0;
+  }
+  const low = Number.isFinite(min) ? min : -Infinity;
+  const high = Number.isFinite(max) ? max : Infinity;
+  return Math.min(high, Math.max(low, value));
+};
 
 export const lerp = (from: number, to: number, t: number): number =>
   from + (to - from) * t;

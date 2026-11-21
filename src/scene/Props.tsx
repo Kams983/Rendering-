@@ -9,6 +9,7 @@ import { Timer } from "./Timer";
 import { Magnifier } from "./Magnifier";
 import { Checkmark } from "./Checkmark";
 import { STATIONS, type Vec3 } from "./timeline";
+import { HELP_LABELS } from "./helpLabels";
 
 type Label3DProps = {
   text: string;
@@ -192,11 +193,7 @@ const HelpBeacon: React.FC<{ frame: number }> = ({ frame }) => {
   const spin = frame * 0.02;
   return (
     <group>
-      {[
-        { text: "ASK", position: [-1.85, 1.82, -39.4] as Vec3, size: 0.18 },
-        { text: "SEARCH", position: [0, 2.08, -39.25] as Vec3, size: 0.2 },
-        { text: "LEARN", position: [1.85, 1.82, -39.4] as Vec3, size: 0.18 },
-      ].map((label) => (
+      {HELP_LABELS.map((label) => (
         <Label3D
           key={label.text}
           text={label.text}

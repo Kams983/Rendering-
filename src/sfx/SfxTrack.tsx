@@ -17,7 +17,6 @@ import {
   SWEEP_CUES,
   type SfxCue,
 } from "./cues";
-import { useVoiceDurations } from "../voice/VoiceTiming";
 import { voiceActiveAt } from "../voice/voiceCues";
 
 export const sfxPath = (file: string): string =>
@@ -78,7 +77,6 @@ const BED_GAIN = dbToGain(-6);
  * drop by -6 dB. The voice itself stays at 1.0.
  */
 export const SfxTrack: React.FC = () => {
-  const durations = useVoiceDurations();
   const available = useSfxAvailability();
 
   if (!available) {
@@ -89,8 +87,7 @@ export const SfxTrack: React.FC = () => {
 
   const cueVolume = (cue: SfxCue) => (localFrame: number): number => {
     const absolute = cue.frame + localFrame;
-    const ducked =
-      cue.duck !== false && voiceActiveAt(absolute, durations);
+    const ducked = cue.duck !== false && voiceActiveAt(absolute);
     return cue.volume * (ducked ? 0.35 : 1);
   };
 
@@ -108,7 +105,7 @@ export const SfxTrack: React.FC = () => {
             loop={bed.loop}
             volume={(localFrame) => {
               const absolute = localFrame;
-              const duck = voiceActiveAt(absolute, durations) ? BED_GAIN : 1;
+              const duck = voiceActiveAt(absolute) ? BED_GAIN : 1;
               // Fade the bed out under the final bass drop.
               const fadeStart = BASS_CUE ? BASS_CUE.frame - 20 : 0;
               const fade =
@@ -142,7 +139,7 @@ export const SfxTrack: React.FC = () => {
             src={sfxPath(cue.file)}
             volume={(localFrame) =>
               cue.volume *
-              (voiceActiveAt(cue.frame + localFrame, durations) ? 0.35 : 1)
+              (voiceActiveAt(cue.frame + localFrame) ? 0.35 : 1)
             }
           />
         </Sequence>
@@ -154,7 +151,7 @@ export const SfxTrack: React.FC = () => {
             src={sfxPath(cue.file)}
             volume={(localFrame) =>
               cue.volume *
-              (voiceActiveAt(cue.frame + localFrame, durations) ? 0.35 : 1)
+              (voiceActiveAt(cue.frame + localFrame) ? 0.35 : 1)
             }
           />
         </Sequence>

@@ -4,6 +4,7 @@ import { COLORS, FONT, VIDEO, SHOW_SUBTITLES } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 import { errorPulseAt, impactAt } from "../sfx/useSfxImpact";
 import { stationForFrame, STATIONS } from "../scene/timeline";
+import { safe } from "../utils/math";
 
 const pad = (value: number, size = 2): string =>
   String(Math.max(0, Math.floor(value))).padStart(size, "0");
@@ -17,8 +18,8 @@ const timecode = (frame: number): string => {
 export const HUD: React.FC = () => {
   const frame = useCurrentFrame();
   const station = stationForFrame(frame);
-  const error = errorPulseAt(frame);
-  const impact = impactAt(frame);
+  const error = safe(errorPulseAt(frame), 0, 0, 1);
+  const impact = safe(impactAt(frame), 0, 0, 1);
 
   const blackout = Math.min(
     1,
@@ -218,7 +219,7 @@ export const HUD: React.FC = () => {
           position: "absolute",
           inset: 0,
           background: "rgba(255,255,255,0.055)",
-          opacity: Math.min(0.75, impact * 0.55),
+          opacity: safe(Math.min(0.75, impact * 0.55), 0, 0, 0.75),
         }}
       />
 
