@@ -22,6 +22,11 @@ on:
         required: true
         default: "20"
         type: string
+      only_part:
+        description: "Render only this part number (blank = all parts)"
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: render-${{ github.ref }}
@@ -33,25 +38,52 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      chunk: ${{ steps.plan.outputs.chunk }}
+      full: ${{ steps.plan.outputs.full }}
     steps:
-      - name: Split 1410 frames into equal parts
+      - name: Build part matrix
         id: plan
-        run: |
-          node -e '
-            const LAST = 1409;
-            const parts = Math.max(1, Math.min(60, Number(process.env.PARTS) || 20));
-            const chunk = Math.ceil((LAST + 1) / parts);
-            const matrix = [];
-            for (let part = 0; part < parts; part += 1) {
-              const start = part * chunk;
-              if (start > LAST) break;
-              matrix.push({ part, start, end: Math.min(LAST, start + chunk - 1) });
-            }
-            console.log(`chunk=${chunk}`);
-            console.log(`matrix=${JSON.stringify(matrix)}`);
-          '
+        shell: bash
         env:
           PARTS: ${{ inputs.parts }}
+          ONLY_PART: ${{ inputs.only_part }}
+        run: |
+          set -euo pipefail
+          LAST=1409
+          PARTS="${PARTS:-40}"
+          if ! [[ "$PARTS" =~ ^[0-9]+$ ]] || [ "$PARTS" -lt 1 ]; then
+            PARTS=40
+          fi
+          if [ "$PARTS" -gt 60 ]; then
+            PARTS=60
+          fi
+          CHUNK=$(( (LAST + 1 + PARTS - 1) / PARTS ))
+          ONLY_PART="$(printf '%s' "$ONLY_PART" | tr -d '[:space:]')"
+          if [ -n "$ONLY_PART" ]; then
+            if ! [[ "$ONLY_PART" =~ ^[0-9]+$ ]]; then
+              echo "only_part must be a number, got '$ONLY_PART'"
+              exit 1
+            fi
+            if [ "$ONLY_PART" -gt $(( PARTS - 1 )) ]; then
+              echo "only_part $ONLY_PART out of range for $PARTS parts"
+              exit 1
+            fi
+            MATRIX="[$ONLY_PART]"
+            FULL=false
+          else
+            MATRIX="[$(seq -s, 0 $(( PARTS - 1 )))]"
+            FULL=true
+          fi
+          if [ -z "$MATRIX" ]; then
+            echo "matrix would be empty"
+            exit 1
+          fi
+          echo "parts=$PARTS chunk=$CHUNK full=$FULL matrix=$MATRIX"
+          {
+            echo "matrix=$MATRIX"
+            echo "chunk=$CHUNK"
+            echo "full=$FULL"
+          } >> "$GITHUB_OUTPUT"
 
   parts:
     name: part-${{ matrix.part }}
@@ -61,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        part: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -90,19 +122,33 @@ jobs:
         run: npm run voice:prepare
 
       - name: Render part
+        shell: bash
+        env:
+          CHUNK: ${{ needs.plan.outputs.chunk }}
+          PART: ${{ matrix.part }}
         run: |
           set -euo pipefail
-          echo "part ${{ matrix.part }}: frames ${{ matrix.start }}-${{ matrix.end }}"
+          LAST=1409
+          START=$(( PART * CHUNK ))
+          END=$(( START + CHUNK - 1 ))
+          if [ "$END" -gt "$LAST" ]; then END=$LAST; fi
+          if [ "$START" -gt "$LAST" ]; then
+            echo "part $PART starts past the last frame ($START > $LAST)"
+            exit 1
+          fi
+          echo "part $PART: frames $START-$END (chunk $CHUNK)"
           mkdir -p out
-          npx remotion render src/index.ts CodingMistakes3D "out/part-${{ matrix.part }}.mp4" \
+          TIMEFORMAT='part %3R s'
+          time npx remotion render src/index.ts CodingMistakes3D "out/part-$PART.mp4" \
             --gl=swangle \
             --concurrency=2 \
             --scale=${{ inputs.scale }} \
             --crf=18 \
             --muted \
             --timeout=600000 \
-            --frames=${{ matrix.start }}-${{ matrix.end }} \
+            --frames=$START-$END \
             --props=props/${{ inputs.quality }}.json
+          echo "part $PART rendered frames $START-$END"
 
       - name: Upload part
         uses: actions/upload-artifact@v4
@@ -113,7 +159,10 @@ jobs:
 
   merge:
     name: merge
-    needs: parts
+    needs:
+      - plan
+      - parts
+    if: needs.plan.outputs.full == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 340
     steps:
