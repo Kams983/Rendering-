@@ -3,13 +3,13 @@ import * as THREE from "three";
 import { Center, Text3D } from "@react-three/drei";
 import { noise3D } from "@remotion/noise";
 import { spring, staticFile, useCurrentFrame } from "remotion";
-import { ASSETS, COLORS, FPS, VIDEO } from "../config";
+import { ASSETS, COLORS, FPS, PACE, VIDEO, frames60 } from "../config";
 import type { Station } from "./timeline";
 import { captionFov } from "./timeline";
 import { clamp01, safe } from "../utils/math";
 import { balanceLines, fitScale } from "./captionFit";
 
-const SLAM_FRAMES = 8;
+const SLAM_FRAMES = frames60(8);
 const ASPECT = VIDEO.width / VIDEO.height;
 
 /** Measured once per station; geometry never changes at runtime. */
@@ -70,19 +70,20 @@ export const Caption3D: React.FC<{ station: Station }> = ({ station }) => {
         frame: age,
         fps: FPS,
         config: { damping: 12, stiffness: 190, mass: 0.6 },
-        durationInFrames: 30,
+        durationInFrames: frames60(30),
       })
     : 0;
 
   const shake =
     visible && age <= SLAM_FRAMES
       ? (1 - age / SLAM_FRAMES) *
-        noise3D(`caption-shake-${station.id}`, frame * 1.9, 0, 0) *
+        noise3D(`caption-shake-${station.id}`, frame * 1.9 * PACE, 0, 0) *
         0.06
       : 0;
-  const float = Math.sin(frame * 0.022 + station.index * 1.3) * 0.025;
+  const float =
+    Math.sin(frame * 0.022 * PACE + station.index * 1.3) * 0.025;
 
-  const flash = visible ? clamp01(Math.exp(-age / 5)) : 0;
+  const flash = visible ? clamp01(Math.exp(-age / frames60(5))) : 0;
   const scale = visible ? (0.5 + settled * 0.5) * fit : 0.0001;
 
   const emissive = flash > 0.35 ? COLORS.red : station.color;

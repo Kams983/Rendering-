@@ -1,7 +1,7 @@
 import React from "react";
 import { RoundedBox } from "@react-three/drei";
 import { useCurrentFrame } from "remotion";
-import { COLORS } from "../config";
+import { COLORS, PACE } from "../config";
 import { TYPING_WINDOWS } from "../sfx/cues";
 import type { Vec3 } from "./timeline";
 
@@ -20,7 +20,7 @@ type KeyProps = {
 
 const Key: React.FC<KeyProps> = ({ index, x, z, frame, typing }) => {
   // Each key has its own deterministic rhythm inside the typing window.
-  const phase = (frame * 0.85 + index * 2.71) % 9;
+  const phase = (frame * 0.85 * PACE + index * 2.71) % 9;
   const press = Math.exp(-phase / 1.35) * typing;
   const jitter = 0.55 + 0.45 * Math.sin(index * 1.7);
   return (

@@ -5,14 +5,28 @@
  * scaled by S. Cue files are the only place a raw reference frame is allowed.
  */
 
-export const FPS = 60;
-/** 60 fps = 2x the 30 fps reference. Every cue frame is multiplied by this. */
+export const FPS = 30;
+/** Composition fps over the 30 fps reference. 1.0 at 30 fps. */
 export const S = FPS / 30;
 
-export type Quality = "preview" | "final";
+/**
+ * Per-frame rate multiplier for motion authored at 60 fps (noise drift, shake,
+ * swing). Multiplying a `frame * k` term by PACE keeps its speed in seconds
+ * identical to the 60 fps cut instead of halving it.
+ */
+export const PACE = 60 / FPS;
 
-/** Default quality tier. Override through the `quality` composition prop. */
-export const QUALITY: Quality = "final";
+/** Convert a frame count authored at 60 fps into this composition's frames. */
+export const frames60 = (frames: number): number =>
+  Math.max(1, Math.round((frames * FPS) / 60));
+
+export type Quality = "preview" | "ci" | "final";
+
+/**
+ * Default quality tier. `ci` is the cheap CPU-profile used by CI: no AO, no
+ * depth of field, no transmission/reflection, no motion blur, no shadows.
+ */
+export const QUALITY: Quality = "ci";
 
 /** Independent of QUALITY, exactly as requested. */
 export const SHOW_SUBTITLES = true;
@@ -22,7 +36,7 @@ export const VIDEO = {
   width: 1080,
   height: 1920,
   fps: FPS,
-  durationInFrames: 2820, // 47 seconds at 60 fps
+  durationInFrames: 1410, // 47 seconds at 30 fps
 } as const;
 
 export type PostSettings = {
@@ -71,6 +85,30 @@ export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
       noise: false,
       vignette: true,
       smaa: false,
+      chromatic: true,
+    },
+    motionBlurSamples: 1,
+    dpr: 1,
+    pathTracingSamples: 0,
+  },
+  // CPU-only profile for GitHub Actions: bloom + vignette + mild chromatic
+  // aberration + SMAA, and nothing that renders offscreen buffers per material.
+  ci: {
+    cubes: 1000,
+    particles: 500,
+    sparkles: 80,
+    shadows: false,
+    contactShadows: false,
+    transmission: false,
+    reflector: false,
+    post: {
+      ao: false,
+      dof: false,
+      bloom: true,
+      glitch: false,
+      noise: false,
+      vignette: true,
+      smaa: true,
       chromatic: true,
     },
     motionBlurSamples: 1,
@@ -129,11 +167,11 @@ export const ASSETS = {
   music: "music.wav",
 } as const;
 
-/** Convert a 30 fps reference frame into a 60 fps frame. */
+/** Convert a 30 fps reference frame into a composition frame. */
 export const rf = (referenceFrame: number): number =>
   Math.round(referenceFrame * S);
 
-/** Convert a 30 fps reference duration into 60 fps frames. */
+/** Convert a 30 fps reference duration into composition frames. */
 export const rfDuration = (referenceFrames: number): number =>
   Math.round(referenceFrames * S);
 

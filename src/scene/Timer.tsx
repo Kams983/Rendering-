@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FPS } from "../config";
+import { COLORS, FPS, PACE } from "../config";
 import { clamp01, easeInOutCubic, lerp, ramp } from "../utils/math";
 import { displayFont } from "./drawText";
 import { STATIONS, type Vec3 } from "./timeline";
@@ -65,7 +65,7 @@ export const Timer: React.FC<{ position: Vec3; rotationY?: number }> = ({
   texture.needsUpdate = true;
 
   if (ring.current) {
-    ring.current.rotation.z = frame * 0.012;
+    ring.current.rotation.z = frame * 0.012 * PACE;
   }
 
   return (

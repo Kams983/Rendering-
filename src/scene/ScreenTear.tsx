@@ -2,6 +2,7 @@ import React, { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useCurrentFrame } from "remotion";
+import { FPS } from "../config";
 import { safe } from "../utils/math";
 
 const vertexShader = /* glsl */ `
@@ -66,7 +67,7 @@ export const ScreenTear: React.FC<{ intensity: number }> = ({ intensity }) => {
 
   useLayoutEffect(() => {
     uniforms.uIntensity.value = safe(intensity, 0, 0, 0.35);
-    uniforms.uTime.value = frame / 60;
+    uniforms.uTime.value = frame / FPS;
     const object = mesh.current;
     if (!object) {
       return;

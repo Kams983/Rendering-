@@ -8,7 +8,7 @@
  */
 import * as THREE from "three";
 import { noise3D } from "@remotion/noise";
-import { VIDEO } from "../config";
+import { PACE, VIDEO } from "../config";
 import { BASS_CUE, SLAM_FRAMES } from "../sfx/cues";
 import { errorPulseAt, impactAt, slamPulseAt } from "../sfx/useSfxImpact";
 import { clamp, lerp, ramp, safe, smoothstep } from "../utils/math";
@@ -83,16 +83,16 @@ export const cameraStateAt = (frame: number): CameraState => {
   }
 
   const drift = new THREE.Vector3(
-    noise3D("drift-x", frame * 0.012, 0, 0) * 0.13,
-    noise3D("drift-y", 0, frame * 0.011, 0) * 0.1,
-    noise3D("drift-z", 0, 0, frame * 0.009) * 0.07,
+    noise3D("drift-x", frame * 0.012 * PACE, 0, 0) * 0.13,
+    noise3D("drift-y", 0, frame * 0.011 * PACE, 0) * 0.1,
+    noise3D("drift-z", 0, 0, frame * 0.009 * PACE) * 0.07,
   );
 
   const shakeAmp = safe(impact * 0.22 + slam * 0.1 + error * 0.03, 0, 0, 0.45);
   const shake = new THREE.Vector3(
-    noise3D("shake-x", frame * 1.8, 0, 0) * shakeAmp,
-    noise3D("shake-y", 0, frame * 2.2, 0) * shakeAmp,
-    noise3D("shake-z", 0, 0, frame * 1.4) * shakeAmp * 0.4,
+    noise3D("shake-x", frame * 1.8 * PACE, 0, 0) * shakeAmp,
+    noise3D("shake-y", 0, frame * 2.2 * PACE, 0) * shakeAmp,
+    noise3D("shake-z", 0, 0, frame * 1.4 * PACE) * shakeAmp * 0.4,
   );
 
   const finalPosition = position.clone().add(drift).add(shake);
@@ -104,7 +104,7 @@ export const cameraStateAt = (frame: number): CameraState => {
   const dutch =
     error * 0.1 +
     impact * 0.025 +
-    noise3D("dutch", frame * 0.5, 0, 0) * 0.006;
+    noise3D("dutch", frame * 0.5 * PACE, 0, 0) * 0.006;
 
   return {
     position: [finalPosition.x, finalPosition.y, finalPosition.z],

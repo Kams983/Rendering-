@@ -1,6 +1,7 @@
 import { codeFont } from "./drawText";
 import type { CodeSpec, Token } from "./code";
 import { charCount } from "./code";
+import { PACE, frames60 } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 
 const BG = "#0b1017";
@@ -59,7 +60,7 @@ const drawSquiggle = (
   ctx.lineWidth = 2;
   ctx.beginPath();
   for (let i = 0; i <= width; i += 4) {
-    const wave = Math.sin(i * 0.55 + frame * 0.25) * 2;
+    const wave = Math.sin(i * 0.55 + frame * 0.25 * PACE) * 2;
     if (i === 0) {
       ctx.moveTo(x + i, y + wave);
     } else {
@@ -253,7 +254,7 @@ const drawPaste = (
   ctx.font = codeFont(18);
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  const dots = ".".repeat(1 + (Math.floor(frame / 18) % 3));
+  const dots = ".".repeat(1 + (Math.floor(frame / frames60(18)) % 3));
   ctx.fillText(`⚠  pasted from a tab you closed${dots}`, 26, 84);
 };
 

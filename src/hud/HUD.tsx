@@ -1,6 +1,6 @@
 import React from "react";
 import { useCurrentFrame } from "remotion";
-import { COLORS, FONT, VIDEO, SHOW_SUBTITLES } from "../config";
+import { COLORS, FONT, VIDEO, SHOW_SUBTITLES, frames60 } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 import { errorPulseAt, impactAt } from "../sfx/useSfxImpact";
 import { stationForFrame, STATIONS } from "../scene/timeline";
@@ -29,7 +29,7 @@ export const HUD: React.FC = () => {
         Math.max(1, VIDEO.durationInFrames - CUE_FRAMES.blackout),
     ),
   );
-  const blink = frame % 70 < 38;
+  const blink = frame % frames60(70) < frames60(38);
 
   return (
     <div
@@ -107,7 +107,7 @@ export const HUD: React.FC = () => {
               color: "rgba(139,148,158,0.7)",
             }}
           >
-            TAKE 005 / 60 FPS
+            {`TAKE 005 / ${VIDEO.fps} FPS`}
           </div>
         </div>
       </div>
@@ -190,7 +190,9 @@ export const HUD: React.FC = () => {
           color: "rgba(139,148,158,0.55)",
         }}
       >
-        1080 × 1920 · 60 FPS · 47.0 S
+        {`${VIDEO.width} × ${VIDEO.height} · ${VIDEO.fps} FPS · ${(
+          VIDEO.durationInFrames / VIDEO.fps
+        ).toFixed(1)} S`}
       </div>
 
       {/* Scanlines */}

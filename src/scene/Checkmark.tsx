@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { spring, useCurrentFrame } from "remotion";
-import { COLORS, FPS } from "../config";
+import { COLORS, FPS, frames60 } from "../config";
 import { CUE_FRAMES } from "../sfx/cues";
 import { clamp01, easeInOutCubic, ramp } from "../utils/math";
 
@@ -47,10 +47,12 @@ export const Checkmark: React.FC = () => {
           frame: doneAge,
           fps: FPS,
           config: { damping: 10, stiffness: 150, mass: 0.5 },
-          durationInFrames: 34,
+          durationInFrames: frames60(34),
         })
       : 0;
-  const ring = clamp01(doneAge >= 0 ? Math.exp(-doneAge / 18) : 0);
+  const ring = clamp01(
+    doneAge >= 0 ? Math.exp(-doneAge / frames60(18)) : 0,
+  );
 
   return (
     <group position={[0.05, 1.7, -48]} scale={1.25}>

@@ -3,29 +3,65 @@ name: Render video
 on:
   workflow_dispatch:
     inputs:
+      quality:
+        description: "Quality tier"
+        required: true
+        default: ci
+        type: choice
+        options:
+          - ci
+          - final
+          - preview
       scale:
         description: "Output scale (1 = 1080x1920, 0.5 = half size)"
         required: true
         default: "1"
+        type: string
+      parts:
+        description: "Number of frame shards"
+        required: true
+        default: "20"
         type: string
 
 concurrency:
   group: render-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  PART_FRAMES: 235
-  LAST_FRAME: 2819
-
 jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Split 1410 frames into equal parts
+        id: plan
+        run: |
+          node -e '
+            const LAST = 1409;
+            const parts = Math.max(1, Math.min(60, Number(process.env.PARTS) || 20));
+            const chunk = Math.ceil((LAST + 1) / parts);
+            const matrix = [];
+            for (let part = 0; part < parts; part += 1) {
+              const start = part * chunk;
+              if (start > LAST) break;
+              matrix.push({ part, start, end: Math.min(LAST, start + chunk - 1) });
+            }
+            console.log(`chunk=${chunk}`);
+            console.log(`matrix=${JSON.stringify(matrix)}`);
+          '
+        env:
+          PARTS: ${{ inputs.parts }}
+
   parts:
     name: part-${{ matrix.part }}
+    needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 340
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -56,12 +92,7 @@ jobs:
       - name: Render part
         run: |
           set -euo pipefail
-          START=$(( ${{ matrix.part }} * PART_FRAMES ))
-          END=$(( START + PART_FRAMES - 1 ))
-          if [ "$END" -gt "$LAST_FRAME" ]; then
-            END=$LAST_FRAME
-          fi
-          echo "part ${{ matrix.part }}: frames $START-$END"
+          echo "part ${{ matrix.part }}: frames ${{ matrix.start }}-${{ matrix.end }}"
           mkdir -p out
           npx remotion render src/index.ts CodingMistakes3D "out/part-${{ matrix.part }}.mp4" \
             --gl=swangle \
@@ -69,8 +100,9 @@ jobs:
             --scale=${{ inputs.scale }} \
             --crf=18 \
             --muted \
-            --frames=$START-$END \
-            --props=props/final.json
+            --timeout=600000 \
+            --frames=${{ matrix.start }}-${{ matrix.end }} \
+            --props=props/${{ inputs.quality }}.json
 
       - name: Upload part
         uses: actions/upload-artifact@v4
@@ -124,15 +156,16 @@ jobs:
           npx remotion render src/index.ts CodingMistakes3D out/audio.aac \
             --codec=aac \
             --gl=swangle \
-            --props=props/final.json
+            --timeout=600000 \
+            --props=props/${{ inputs.quality }}.json
 
       - name: Concat parts and mux audio
         run: |
           set -euo pipefail
           : > out/list.txt
-          for i in $(seq 0 11); do
-            test -f "out/part-$i.mp4" || { echo "missing out/part-$i.mp4"; exit 1; }
-            echo "file 'part-$i.mp4'" >> out/list.txt
+          for file in $(ls out/part-*.mp4 | sort -V); do
+            test -f "$file" || { echo "missing $file"; exit 1; }
+            echo "file '$(basename "$file")'" >> out/list.txt
           done
           cat out/list.txt
           ffmpeg -y -f concat -safe 0 -i out/list.txt -c copy out/video-only.mp4

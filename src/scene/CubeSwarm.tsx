@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useCurrentFrame } from "remotion";
-import { COLORS } from "../config";
+import { COLORS, PACE, frames60 } from "../config";
 import { CUE_FRAMES, ERROR_CUES } from "../sfx/cues";
 import { errorPulseAt, impactAt } from "../sfx/useSfxImpact";
 import { mulberry32 } from "../utils/seeded";
@@ -67,7 +67,7 @@ export const CubeSwarm: React.FC<{
       if (age < 0) {
         return 0;
       }
-      return (cue.weight ?? 0.5) * Math.exp(-age / 17);
+      return (cue.weight ?? 0.5) * Math.exp(-age / frames60(17));
     }),
   );
 
@@ -83,20 +83,22 @@ export const CubeSwarm: React.FC<{
     const fixed = frame >= FIX_FRAME;
 
     cubes.forEach((cube, index) => {
-      const sway = Math.sin(frame * 0.018 * cube.speed + cube.phase);
-      const lift = Math.cos(frame * 0.013 * cube.speed + cube.phase * 1.7);
+      const sway = Math.sin(frame * 0.018 * PACE * cube.speed + cube.phase);
+      const lift = Math.cos(
+        frame * 0.013 * PACE * cube.speed + cube.phase * 1.7,
+      );
       const explode = burst * (2.4 + cube.tone * 2.4);
 
       dummy.position.set(
         cube.position.x + sway * 0.24 + cube.direction.x * explode,
         cube.position.y + lift * 0.16 + cube.direction.y * explode,
-        cube.position.z + Math.sin(frame * 0.01 + cube.phase) * 0.2 +
+        cube.position.z + Math.sin(frame * 0.01 * PACE + cube.phase) * 0.2 +
           cube.direction.z * explode,
       );
       dummy.rotation.set(
-        frame * 0.012 * cube.speed + cube.phase,
-        frame * 0.016 * cube.speed + cube.phase * 0.5,
-        frame * 0.009 * cube.speed,
+        frame * 0.012 * PACE * cube.speed + cube.phase,
+        frame * 0.016 * PACE * cube.speed + cube.phase * 0.5,
+        frame * 0.009 * PACE * cube.speed,
       );
       dummy.scale.setScalar(
         cube.size * (1 + energy * 0.35 + impact * 0.3 + burst * 0.5),

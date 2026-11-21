@@ -15,8 +15,10 @@ import { errorPulseAt, impactAt, slamPulseAt } from "../src/sfx/useSfxImpact";
 
 type FrameValues = Record<string, number>;
 
-/** Frames that went black in the previous render. */
-const SUSPECT_FRAMES = [288, 318, 378, 2394, 2418, 2592, 2814];
+/** Frames that went black in the previous render, in this composition's fps. */
+const SUSPECT_FRAMES = [288, 318, 378, 2394, 2418, 2592, 2814].map((frame) =>
+  Math.round((frame * VIDEO.fps) / 60),
+);
 
 const collect = (frame: number, energy: number): FrameValues => {
   const cam = cameraStateAt(frame);

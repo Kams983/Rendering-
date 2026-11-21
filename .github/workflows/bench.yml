@@ -1,0 +1,74 @@
+name: Benchmark frames
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    name: bench
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install ffmpeg and Chromium libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libnss3 libdbus-1-3 libatk1.0-0t64 \
+            libasound2t64 libxrandr2 libxkbcommon-dev libxfixes3 \
+            libxcomposite1 libxdamage1 libgbm-dev libcups2t64 \
+            libatk-bridge2.0-0t64
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Chrome for Remotion
+        run: npx remotion browser ensure
+
+      - name: Measure and fit voice-over
+        run: npm run voice:prepare
+
+      - name: Time single frames
+        run: |
+          set -o pipefail
+          mkdir -p out/bench
+          : > out/bench/results.txt
+          TIMEFORMAT='%3R'
+          for quality in ci final; do
+            for scale in 1 0.5; do
+              for frame in 150 600 1200; do
+                echo "--- $quality scale=$scale frame=$frame ---"
+                seconds=$( { time npx remotion still src/index.ts CodingMistakes3D \
+                  "out/bench/${quality}-${scale}-${frame}.png" \
+                  --frame=$frame \
+                  --gl=swangle \
+                  --timeout=600000 \
+                  --scale=$scale \
+                  --props=props/${quality}.json > out/bench/last.log 2>&1 ; } 2>&1 | tail -1 )
+                status=$?
+                if [ "$status" -ne 0 ]; then
+                  echo "FAILED: $quality scale=$scale frame=$frame"
+                  tail -20 out/bench/last.log
+                  seconds="failed"
+                fi
+                echo "${quality} ${scale} ${frame} ${seconds}" >> out/bench/results.txt
+              done
+            done
+          done
+
+      - name: Print summary table
+        run: |
+          printf '%-9s %-7s %-7s %s\n' quality scale frame seconds
+          printf '%-9s %-7s %-7s %s\n' ------- ----- ----- -------
+          awk '{ printf "%-9s %-7s %-7s %s\n", $1, $2, $3, $4 }' out/bench/results.txt

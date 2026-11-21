@@ -105,14 +105,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({
               transparent
             />
           ) : (
-            <meshPhysicalMaterial
+            // Plain transparent standard material: no transmission pass, which
+            // is what a transmission material costs on a CPU rasteriser.
+            <meshStandardMaterial
               transparent
-              opacity={0.14}
-              roughness={0.05}
+              opacity={0.12}
+              roughness={0.06}
               metalness={0}
               color="#9fd2ff"
-              transmission={0.6}
-              thickness={0.05}
+              toneMapped={false}
             />
           )}
         </mesh>
